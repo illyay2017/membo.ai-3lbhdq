@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android"
+    android:opacity="opaque">
+
+    <!-- Background layer using the app's background color -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/colorBackground" />
+        </shape>
+    </item>
+
+    <!-- Centered app icon -->
+    <item
+        android:width="120dp"
+        android:height="120dp"
+        android:drawable="@drawable/app_icon"
+        android:gravity="center" />
+
+</layer-list>
