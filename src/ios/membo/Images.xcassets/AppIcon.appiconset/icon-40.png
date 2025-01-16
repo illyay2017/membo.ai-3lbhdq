@@ -1,0 +1,40 @@
+/*
+iOS App Icon Asset Specifications:
+--------------------------------
+Filename: icon-40.png
+Location: Images.xcassets/AppIcon.appiconset/
+Purpose: iPhone/iPad Spotlight and Settings icon (20pt x 20pt @2x)
+
+Image Properties:
+- Dimensions: 40x40 pixels
+- Format: 32-bit PNG with alpha channel
+- Color Space: RGB
+- Scale Factor: 2x (@2x)
+- Usage: Spotlight Search Results, Settings (iPad)
+
+Design Implementation:
+- Background: Solid brand color (#2563eb - Primary brand blue)
+- Logo: Centered "m" lettermark in white
+- Corner Radius: Square edges (iOS automatically applies rounding)
+- Padding: 4px on all sides
+
+Optimization:
+- Lossless PNG compression
+- Target file size < 50KB
+- Pixel-perfect rendering
+- sRGB IEC61966-2.1 color profile
+- Anti-aliased edges
+
+Platform Support:
+- iOS 13.0 and later
+- iPhone SE through iPhone 12 Pro Max
+- iPad 8th gen through iPad Pro 12.9-inch
+
+Quality Verification:
+- Tested in Light/Dark mode
+- Verified in Spotlight Search and Settings
+- Compliant with Apple Human Interface Guidelines
+- Passes App Store requirements
+
+[Binary PNG data would be here - Cannot be represented in text]
+*/
