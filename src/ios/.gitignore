@@ -1,0 +1,51 @@
+build/
+DerivedData/
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Dependencies
+Pods/
+vendor/
+Carthage/Build/
+*.framework/
+
+# Xcode
+*.mode1v3
+*.mode2v3
+*.moved-aside
+*.pbxuser
+*.perspectivev3
+*.xccheckout
+*.xcscmblueprint
+*.xcuserstate
+xcuserdata/
+project.xcworkspace/xcuserdata/
+*.xcodeproj/*
+!*.xcodeproj/project.pbxproj
+!*.xcodeproj/xcshareddata/
+
+# IDE files
+.idea/
+*.swp
+*.swo
+.DS_Store
+*~.nib
+
+# Sensitive files
+GoogleService-Info.plist
+*.mobileprovision 
+*.cer
+*.p12
+*.key
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+
+# Temporary files
+*.log
+tmp/
+*.tmp
+*.bak
