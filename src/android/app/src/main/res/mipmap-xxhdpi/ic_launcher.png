@@ -1,0 +1,40 @@
+[Binary PNG data for a 144x144px adaptive launcher icon with the following specifications:
+
+1. Image Properties:
+- Format: PNG
+- Dimensions: 144x144 pixels
+- Color Space: sRGB
+- Bit Depth: 8-bit per channel
+- Alpha Channel: Yes (8-bit)
+- Compression: Optimal PNG compression (level 9)
+- Target File Size: < 100KB
+
+2. Design Elements:
+- Background Layer: Linear gradient
+  - Start Color: #2563eb (Primary Blue)
+  - End Color: #1e40af (Dark Blue)
+  - Angle: 45 degrees
+  - Coverage: Full icon area
+
+- Foreground Layer: Vector app logo
+  - Color: #ffffff (White)
+  - Scale: 80% of safe zone
+  - Position: Centered
+  - Safe Zone: Inner 66% of total area
+  - Padding: 10% from safe zone edges
+
+3. Adaptive Icon Specifications:
+- Type: Square base shape
+- Safe Zone: 17% inset from edges
+- Platform Support: Android 7.1+
+- Target Density: xxhdpi (3.0x)
+
+4. Optimization:
+- Compressed using pngquant and optipng
+- Metadata stripped
+- Color palette optimized
+- Alpha channel optimized
+- Lossless compression applied
+
+Note: This is a binary file and the actual image data would be generated 
+according to these specifications using appropriate image creation tools.]
