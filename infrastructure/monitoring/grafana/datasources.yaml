@@ -1,0 +1,92 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasources
+  namespace: monitoring
+  labels:
+    app: grafana
+    component: datasources
+data:
+  datasources.yaml: |
+    apiVersion: 1
+
+    # List of data sources to be configured in Grafana
+    datasources:
+      # Prometheus data source for metrics monitoring
+      - name: Prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus-server:9090
+        isDefault: true
+        version: 1
+        editable: false
+        jsonData:
+          # Scrape and query intervals
+          timeInterval: "15s"
+          queryTimeout: "30s"
+          httpMethod: POST
+          # Enable exemplars for high-cardinality data
+          exemplarTraceIdDestinations:
+            - name: trace_id
+              datasourceUid: tempo
+          # Configure scrape settings
+          scrapeInterval: 15s
+          queryTimeoutMs: 30000
+          # HTTP settings
+          httpHeaderName1: "X-Scope-OrgID"
+          timeoutSeconds: 60
+        secureJsonData:
+          httpHeaderValue1: "${GRAFANA_ORG_ID}"
+
+      # Elasticsearch data source for log aggregation
+      - name: Elasticsearch
+        type: elasticsearch
+        access: proxy
+        url: http://elasticsearch:9200
+        database: "membo-*"
+        version: 1
+        editable: false
+        jsonData:
+          # Time field configuration
+          timeField: "@timestamp"
+          esVersion: "8.11.1"
+          maxConcurrentShardRequests: 5
+          # Log field mappings
+          logMessageField: "message"
+          logLevelField: "level"
+          # Index settings
+          interval: Daily
+          timeInterval: "1m"
+          # Field configuration
+          variableQueryDefaults:
+            - name: "level"
+              type: "string"
+              values: ["error", "warn", "info", "debug"]
+          # Performance tuning
+          maxConcurrentRequests: 5
+          includeFrozen: false
+          # Security settings
+          tlsSkipVerify: false
+          tlsAuth: false
+          sigV4Auth: false
+        secureJsonData:
+          # Elasticsearch authentication (to be injected via secrets)
+          esUsername: "${ES_USERNAME}"
+          esPassword: "${ES_PASSWORD}"
+
+    # Default configuration for all datasources
+    defaultDatasourceSettings:
+      # Timeout settings
+      timeout: 30
+      # Query caching
+      queryTimeout: "30s"
+      # HTTP settings
+      httpTimeout: 30
+      # TLS settings
+      tlsAuth: false
+      tlsAuthWithCACert: false
+      # Proxy settings
+      withCredentials: false
+
+    # Version control
+    version: 1
