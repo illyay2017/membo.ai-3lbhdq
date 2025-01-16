@@ -1,0 +1,127 @@
+{
+  "project_info": {
+    "project_number": "912345678901",
+    "project_id": "membo-ai",
+    "storage_bucket": "membo-ai.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:912345678901:android:abc123def456",
+        "android_client_info": {
+          "package_name": "ai.membo"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+          "restrictions": {
+            "android_key_restrictions": {
+              "allowed_package_names": ["ai.membo"]
+            },
+            "api_targets": [
+              {
+                "service": "analytics",
+                "methods": ["collect"]
+              },
+              {
+                "service": "messaging",
+                "methods": ["register", "receive"]
+              },
+              {
+                "service": "crashlytics",
+                "methods": ["report"]
+              }
+            ]
+          }
+        }
+      ],
+      "services": {
+        "analytics_service": {
+          "status": 1,
+          "analytics_property": {
+            "tracking_id": "UA-XXXXXXXXX-1",
+            "collection_enabled": true,
+            "analytics_collection_deferred": false,
+            "analytics_settings": {
+              "data_retention_time": "14",
+              "sampling_rate": "100",
+              "pii_removal_enabled": true,
+              "consent_settings": {
+                "ad_storage": "denied",
+                "analytics_storage": "granted",
+                "wait_for_update": 500
+              }
+            }
+          }
+        },
+        "cloud_messaging_service": {
+          "status": 2,
+          "apns_config": [],
+          "token_refresh_interval": 3600,
+          "notification_channels": [
+            {
+              "id": "study_reminders",
+              "name": "Study Reminders",
+              "description": "Notifications for scheduled study sessions",
+              "importance": "high",
+              "enable_vibration": true,
+              "enable_lights": true,
+              "show_badge": true
+            },
+            {
+              "id": "system_updates",
+              "name": "System Updates",
+              "description": "Important system and maintenance notifications",
+              "importance": "default",
+              "enable_vibration": false,
+              "enable_lights": false,
+              "show_badge": false
+            }
+          ]
+        },
+        "crashlytics_service": {
+          "status": 2,
+          "analytics_enabled": true,
+          "collection_enabled": true,
+          "debug_enabled": false,
+          "custom_keys": {
+            "exclude_pii": true,
+            "include_unhandled": true,
+            "log_level": "error",
+            "max_custom_keys": 64,
+            "max_custom_key_value_length": 1024,
+            "persistence_enabled": true,
+            "send_on_wifi_only": false
+          }
+        },
+        "performance_service": {
+          "status": 2,
+          "performance_collection_enabled": true,
+          "network_request_sampling_rate": 100,
+          "trace_sampling_rate": 10,
+          "foreground_trace_sampling_rate": 100
+        }
+      }
+    }
+  ],
+  "configuration_version": "1",
+  "security_settings": {
+    "data_protection_level": "high",
+    "api_key_rotation": {
+      "enabled": true,
+      "rotation_period_days": 90
+    },
+    "monitoring": {
+      "alert_thresholds": {
+        "api_key_daily_quota": 100000,
+        "suspicious_activity_detection": true,
+        "rate_limiting": {
+          "max_requests_per_minute": 1000,
+          "max_concurrent_connections": 100
+        }
+      }
+    }
+  }
+}
