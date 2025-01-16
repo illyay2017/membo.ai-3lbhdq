@@ -1,0 +1,102 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: membo
+  labels:
+    name: membo
+    environment: production
+    app: membo-ai
+    region: multi-region
+    tier: production
+    version: v1
+    managed-by: platform-team
+  annotations:
+    description: Production namespace for membo.ai application components
+    team: platform
+    tier: production
+    monitoring.enabled: "true"
+    logging.enabled: "true"
+    backup.enabled: "true"
+    security.compliance: soc2,gdpr,ccpa
+    deployment.strategy: rolling-update
+    scaling.enabled: "true"
+    mesh.istio.io/injection: enabled
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: membo-quota
+  namespace: membo
+spec:
+  hard:
+    requests.cpu: "24"
+    requests.memory: 48Gi
+    limits.cpu: "32"
+    limits.memory: 64Gi
+    requests.storage: 500Gi
+    pods: "45"
+    services: "20"
+    configmaps: "30"
+    secrets: "30"
+    persistentvolumeclaims: "20"
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: membo-limits
+  namespace: membo
+spec:
+  limits:
+  - type: Container
+    default:
+      cpu: 500m
+      memory: 512Mi
+    defaultRequest:
+      cpu: 200m
+      memory: 256Mi
+    maxLimitRequestRatio:
+      cpu: "4"
+      memory: "4"
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: membo-network-policy
+  namespace: membo
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: In
+          values:
+          - monitoring
+          - logging
+          - ingress-nginx
+          - cert-manager
+          - prometheus
+    ports:
+    - port: 3000
+      protocol: TCP
+    - port: 4000
+      protocol: TCP
+    - port: 9090
+      protocol: TCP
+  egress:
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+        except:
+        - 10.0.0.0/8
+        - 172.16.0.0/12
+        - 192.168.0.0/16
+    ports:
+    - port: 443
+      protocol: TCP
+    - port: 80
+      protocol: TCP
