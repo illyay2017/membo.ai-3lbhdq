@@ -1,0 +1,184 @@
+name: Web CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: '0 */4 * * *'
+
+concurrency:
+  group: web-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  id-token: write
+  deployments: write
+  pull-requests: write
+  security-events: write
+
+env:
+  NODE_VERSION: '20.x'
+  WORKING_DIRECTORY: 'src/web'
+  VITE_API_URL: 'https://api.membo.ai'
+  VITE_WS_URL: 'wss://api.membo.ai'
+  VITE_SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+  VITE_RELEASE_VERSION: ${{ github.sha }}
+  VITE_ENVIRONMENT: 'production'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: '**/package-lock.json'
+
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            **/node_modules
+            ~/.npm
+          key: npm-deps-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            npm-deps-
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit
+
+      - name: Run ESLint
+        run: npm run lint
+        continue-on-error: false
+
+      - name: Type check
+        run: npm run typecheck
+        continue-on-error: false
+
+      - name: Run unit tests
+        run: npm run test:coverage
+        continue-on-error: false
+
+      - name: Run E2E tests
+        run: npm run test:e2e
+        continue-on-error: false
+
+      - name: Build application
+        run: npm run build
+
+      - name: Run CodeQL analysis
+        uses: github/codeql-action/analyze@v2
+        with:
+          category: "/language:javascript"
+
+      - name: Cache build artifacts
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.WORKING_DIRECTORY }}/dist
+          key: build-${{ github.sha }}
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: web-build
+          path: ${{ env.WORKING_DIRECTORY }}/dist
+          retention-days: 7
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://app.membo.ai
+
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: web-build
+          path: ${{ env.WORKING_DIRECTORY }}/dist
+
+      - name: Authenticate with Google Cloud
+        uses: google-github-actions/auth@v1
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Create Sentry release
+        uses: getsentry/action-release@v1
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+        with:
+          environment: production
+          sourcemaps: ${{ env.WORKING_DIRECTORY }}/dist
+          version: ${{ github.sha }}
+
+      - name: Deploy to Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v1
+        with:
+          service: web
+          region: ${{ secrets.GCP_REGION }}
+          source: ${{ env.WORKING_DIRECTORY }}/dist
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          flags: |
+            --allow-unauthenticated
+            --port=3000
+            --memory=1Gi
+            --cpu=1
+            --min-instances=2
+            --max-instances=10
+            --concurrency=80
+
+      - name: Health check
+        run: |
+          HEALTH_CHECK_URL="https://app.membo.ai/health"
+          MAX_RETRIES=5
+          RETRY_DELAY=30
+          
+          for i in $(seq 1 $MAX_RETRIES); do
+            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" $HEALTH_CHECK_URL)
+            if [ $HTTP_STATUS -eq 200 ]; then
+              echo "Health check passed"
+              exit 0
+            fi
+            echo "Attempt $i: Health check failed with status $HTTP_STATUS"
+            if [ $i -lt $MAX_RETRIES ]; then
+              echo "Retrying in $RETRY_DELAY seconds..."
+              sleep $RETRY_DELAY
+            fi
+          done
+          echo "Health check failed after $MAX_RETRIES attempts"
+          exit 1
+
+      - name: Notify deployment status
+        if: always()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const { status, conclusion } = context.job
+            const state = conclusion === 'success' ? '✅ Success' : '❌ Failure'
+            const message = `Deployment to production ${state}\nCommit: ${context.sha}\nWorkflow: ${context.workflow}`
+            
+            await github.rest.repos.createCommitComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.sha,
+              body: message
+            })
