@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://api.membo.ai; img-src 'self' data: https:; script-src 'self'; frame-ancestors 'none'; form-action 'none'">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <meta http-equiv="X-XSS-Protection" content="1; mode=block">
+    <meta name="theme-color" content="#2563eb">
+    <meta name="description" content="membo.ai Chrome extension for capturing and processing learning content">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+
+    <title>membo.ai - Content Capture</title>
+
+    <!-- Preload critical resources -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link rel="preload" href="popup.tsx" as="script" type="module" crossorigin="anonymous">
+    <link rel="preload" href="styles.css" as="style">
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="styles.css">
+
+    <!-- Error handling for unsupported browsers -->
+    <script type="text/javascript">
+        if (!window.chrome || !window.chrome.runtime) {
+            document.documentElement.innerHTML = 'This extension requires Chrome browser.';
+        }
+    </script>
+</head>
+<body>
+    <main 
+        id="root" 
+        class="popup-container"
+        role="main"
+        aria-label="membo.ai content capture popup"
+        style="width: 400px; height: 600px;"
+    >
+        <!-- React app will be mounted here -->
+        <noscript>
+            <div role="alert" class="p-4 text-center">
+                JavaScript is required to use the membo.ai extension
+            </div>
+        </noscript>
+    </main>
+
+    <!-- Load React application -->
+    <script type="module" src="popup.tsx" defer integrity="sha384-"></script>
+
+    <!-- Error boundary for runtime errors -->
+    <div 
+        id="error-boundary" 
+        role="alert" 
+        aria-live="assertive" 
+        style="display: none;"
+    >
+        <p class="p-4 text-center text-error">
+            An error occurred. Please reload the extension.
+        </p>
+    </div>
+</body>
+</html>
