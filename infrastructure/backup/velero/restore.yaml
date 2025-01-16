@@ -1,0 +1,137 @@
+apiVersion: velero.io/v1
+kind: Restore
+metadata:
+  name: membo-restore
+  namespace: velero
+  labels:
+    app: membo-ai
+    environment: production
+    restore-type: full
+    encryption: aes-256
+    backup-retention: 30-days
+  annotations:
+    restore.velero.io/restore-volumes: "true"
+    pre.hook.restore.velero.io/timeout: "30m"
+    post.hook.restore.velero.io/timeout: "60m"
+    velero.io/encryption-key: "gcpkms://projects/membo-ai/locations/global/keyRings/backup/cryptoKeys/restore"
+    velero.io/restore-validation: "strict"
+    velero.io/restore-monitoring: "enabled"
+
+spec:
+  backupName: membo-backup
+  includedNamespaces:
+    - membo
+  excludedNamespaces: []
+  includedResources:
+    - "*"
+  excludedResources:
+    - events
+    - metrics
+    - events.events.k8s.io
+    - monitoring.coreos.com
+  includeClusterResources: true
+  labelSelector:
+    matchLabels:
+      app: membo-ai
+  restorePVs: true
+  preserveNodePorts: true
+  
+  hooks:
+    resources:
+      - name: pre-restore-validation
+        includedNamespaces:
+          - membo
+        labelSelector:
+          matchLabels:
+            app: membo-ai
+        pre:
+          - exec:
+              container: validation-helper
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  /scripts/validate-backup.sh \
+                    --check-integrity \
+                    --verify-encryption \
+                    --validate-storage-space \
+                    --timeout=900
+              timeout: "15m"
+              
+      - name: database-restore
+        includedNamespaces:
+          - membo
+        labelSelector:
+          matchLabels:
+            app: membo-ai
+            component: database
+        post:
+          - exec:
+              container: db-restore-helper
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  /scripts/restore-db.sh \
+                    --validate-schema \
+                    --check-consistency \
+                    --verify-indexes \
+                    --timeout=1800
+              timeout: "30m"
+              
+      - name: post-restore-verification
+        includedNamespaces:
+          - membo
+        labelSelector:
+          matchLabels:
+            app: membo-ai
+        post:
+          - exec:
+              container: verification-helper
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  /scripts/verify-restore.sh \
+                    --check-app-health \
+                    --verify-services \
+                    --validate-data \
+                    --check-performance \
+                    --timeout=900
+              timeout: "15m"
+
+  resourceModifications:
+    - selector:
+        labelSelector:
+          matchLabels:
+            app: membo-ai
+            component: database
+      patches:
+        - operation: replace
+          path: /spec/template/spec/containers/0/resources/limits/memory
+          value: "8Gi"
+        - operation: replace
+          path: /spec/template/spec/containers/0/resources/limits/cpu
+          value: "4"
+
+  restoreStatus:
+    monitoring:
+      metrics:
+        - name: restore_duration
+          type: gauge
+        - name: data_integrity_score
+          type: gauge
+        - name: app_health_status
+          type: gauge
+        - name: resource_utilization
+          type: gauge
+    alerts:
+      - name: restore_failure
+        severity: critical
+        expression: restore_status != 'success'
+      - name: validation_failure
+        severity: high
+        expression: data_integrity_score < 0.95
+      - name: performance_degradation
+        severity: medium
+        expression: resource_utilization > 0.85
