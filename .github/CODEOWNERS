@@ -1,0 +1,36 @@
+# Unless a later match takes precedence, @membo/core-team will be requested for review
+* @membo/core-team
+
+# Backend service code ownership
+src/backend/** @membo/backend-team @membo/tech-leads
+
+# Web application code ownership
+src/web/** @membo/frontend-team @membo/tech-leads
+
+# Mobile application code ownership
+src/ios/** @membo/ios-team @membo/mobile-leads
+src/android/** @membo/android-team @membo/mobile-leads
+
+# Infrastructure and deployment configuration ownership
+infrastructure/** @membo/devops-team @membo/tech-leads
+
+# CI/CD workflow configuration ownership
+.github/workflows/** @membo/devops-team @membo/tech-leads
+
+# AI processing components require both AI and backend team review
+src/backend/src/core/ai/** @membo/ai-team @membo/backend-team
+
+# Study algorithm components require both learning and backend team review
+src/backend/src/core/study/** @membo/learning-team @membo/backend-team
+
+# Security configuration requires both security and devops team review
+infrastructure/security/** @membo/security-team @membo/devops-team
+
+# Monitoring configuration requires both devops and SRE team review
+infrastructure/monitoring/** @membo/devops-team @membo/sre-team
+
+# Package dependency management restricted to tech leads for security
+package.json @membo/tech-leads
+
+# CODEOWNERS file modifications restricted to tech leads only
+.github/CODEOWNERS @membo/tech-leads
