@@ -1,0 +1,27 @@
+[BINARY PNG FILE WITH THE FOLLOWING SPECIFICATIONS]
+
+Format: PNG (32-bit ARGB)
+Dimensions: 192x192 pixels
+Density: xxxhdpi (4.0x baseline, ~640dpi)
+Shape: Round adaptive icon
+
+Image Structure:
+- Background Layer: Solid white (#ffffff) extending full 192x192px
+- Safe Zone: Central 127x127px area containing key logo elements
+- Foreground Layer: membo.ai logo centered in safe zone
+  - Primary Color: #2563eb
+  - Secondary Elements: Brand-compliant accent colors
+  - Anti-aliasing: Enabled
+  - Alpha Channel: Present for transparency
+
+Optimization:
+- Compression: Lossless PNG optimization
+- Target File Size: < 50KB
+- Quality: 100% preserved
+- Color Profile: sRGB
+
+Technical Requirements:
+- Proper PNG header and chunks
+- Correct IHDR chunk with dimensions
+- Alpha channel in RGBA pixel format
+- Optimized file size while maintaining quality
