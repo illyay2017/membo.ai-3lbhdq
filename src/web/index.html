@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>membo.ai - Smart Knowledge Retention</title>
+
+    <!-- Meta tags -->
+    <meta name="description" content="Personal knowledge retention system that transforms captured content into smart flashcards using artificial intelligence" />
+    <meta name="theme-color" content="#2563eb" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#1e40af" media="(prefers-color-scheme: dark)" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+
+    <!-- Open Graph tags -->
+    <meta property="og:title" content="membo.ai - Smart Knowledge Retention" />
+    <meta property="og:description" content="Transform captured content into smart flashcards using AI" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="/og-image.png" />
+
+    <!-- Twitter tags -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="membo.ai - Smart Knowledge Retention" />
+    <meta name="twitter:description" content="Transform captured content into smart flashcards using AI" />
+
+    <!-- Preconnect to external resources -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://api.membo.ai" />
+    <link rel="preconnect" href="https://storage.googleapis.com" />
+
+    <!-- Font preloading -->
+    <link 
+      rel="preload" 
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      as="style"
+      onload="this.onload=null;this.rel='stylesheet'"
+    />
+    <link 
+      href="https://fonts.googleapis.com/css2?family=SF+Pro:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <link 
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- PWA assets -->
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <!-- Content Security Policy -->
+    <meta http-equiv="Content-Security-Policy" content="
+      default-src 'self';
+      script-src 'self' 'unsafe-inline' 'unsafe-eval' https://api.membo.ai;
+      style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+      img-src 'self' data: https: blob:;
+      font-src 'self' https://fonts.gstatic.com;
+      connect-src 'self' wss: https: https://api.membo.ai https://storage.googleapis.com;
+      worker-src 'self' blob:;
+      manifest-src 'self';
+      base-uri 'self';
+      form-action 'self';
+      frame-ancestors 'none';
+      upgrade-insecure-requests;
+    " />
+
+    <!-- Additional security headers -->
+    <meta http-equiv="X-Frame-Options" content="DENY" />
+    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+    <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin" />
+    <meta http-equiv="Permissions-Policy" content="camera=(), microphone=(self), geolocation=()" />
+  </head>
+  <body>
+    <div id="root" aria-label="membo.ai application"></div>
+    <noscript>
+      <div style="display: flex; justify-content: center; align-items: center; height: 100vh; text-align: center; font-family: Inter, system-ui, sans-serif;">
+        You need to enable JavaScript to run this app.
+      </div>
+    </noscript>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
