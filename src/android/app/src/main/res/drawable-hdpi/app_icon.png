@@ -1,0 +1,29 @@
+[Binary PNG Image File with the following specifications]
+
+Format: PNG
+Dimensions: 180x180 pixels
+Scale Factor: 1.5x (hdpi)
+Target Density: ~240dpi
+Color Space: sRGB
+Color Depth: 32-bit with alpha channel
+Compression: PNG optimal compression
+
+Design Requirements:
+- Primary Brand Color: #2563eb
+- Background: Transparent
+- Material Design Guidelines Compliant
+- Safe Zone: 162x162 pixels (90% of dimensions)
+- Minimum Edge Padding: 18 pixels (10% of dimensions)
+- Corner Radius: 36 pixels (20% of icon size)
+- No Manual Shadow (handled by Android system)
+
+Platform Requirements:
+- Android 8.0+ (API 24) Adaptive Icon Compatible
+- HDPI Density Qualifier (~240dpi)
+- Non-Vector Format Required
+- System UI Compatible
+
+Usage Contexts:
+1. Launcher Icon (home screen/app drawer)
+2. Splash Screen (centered, 180x180px)
+3. System UI (recent apps/settings/notifications)
