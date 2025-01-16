@@ -1,0 +1,146 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-frontend
+  namespace: membo
+  labels:
+    app: membo
+    component: web
+  annotations:
+    kubernetes.io/description: "membo.ai web frontend deployment"
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/part-of: "membo"
+spec:
+  # Initial replica count matching scaling config
+  replicas: 2
+  
+  # Pod selector matching service labels
+  selector:
+    matchLabels:
+      app: membo
+      component: web
+  
+  # Pod template specification
+  template:
+    metadata:
+      labels:
+        app: membo
+        component: web
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "3000"
+        prometheus.io/path: "/metrics"
+    
+    spec:
+      # Container security context
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 2000
+      
+      # Container specifications
+      containers:
+      - name: web
+        image: gcr.io/membo/web:latest
+        imagePullPolicy: Always
+        
+        # Container ports
+        ports:
+        - name: http
+          containerPort: 3000
+          protocol: TCP
+        
+        # Resource requests and limits
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "256Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+        
+        # Liveness probe configuration
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        
+        # Readiness probe configuration
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: http
+            scheme: HTTP
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 3
+        
+        # Environment configuration from ConfigMaps and Secrets
+        envFrom:
+        - configMapRef:
+            name: membo-config
+        - secretRef:
+            name: app-secrets
+        
+        # Additional environment variables
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        
+        # Volume mounts for static content
+        volumeMounts:
+        - name: static-content
+          mountPath: /app/static
+          readOnly: true
+      
+      # Volume definitions
+      volumes:
+      - name: static-content
+        emptyDir: {}
+      
+      # Pod scheduling and anti-affinity
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - membo
+                - key: component
+                  operator: In
+                  values:
+                  - web
+              topologyKey: kubernetes.io/hostname
+      
+      # Node selection
+      nodeSelector:
+        cloud.google.com/gke-nodepool: web-pool
+      
+      # Tolerations for node taints
+      tolerations:
+      - key: "node-role"
+        operator: "Equal"
+        value: "web"
+        effect: "NoSchedule"
+      
+      # Image pull secrets if needed
+      imagePullSecrets:
+      - name: gcr-secret
