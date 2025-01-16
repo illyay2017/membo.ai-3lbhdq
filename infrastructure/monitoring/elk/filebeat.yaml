@@ -1,0 +1,201 @@
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: filebeat
+  namespace: monitoring
+  labels:
+    app: filebeat
+    component: logging
+    part-of: membo-monitoring
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "5066"
+    prometheus.io/path: "/metrics"
+spec:
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: filebeat
+  template:
+    metadata:
+      labels:
+        app: filebeat
+    spec:
+      serviceAccountName: filebeat
+      terminationGracePeriodSeconds: 30
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      containers:
+      - name: filebeat
+        image: docker.elastic.co/beats/filebeat:8.11.1
+        args: [
+          "-c", "/usr/share/filebeat/config/filebeat.yml",
+          "-e",
+        ]
+        env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        securityContext:
+          runAsUser: 0
+          privileged: true
+        resources:
+          requests:
+            cpu: 100m
+            memory: 200Mi
+          limits:
+            cpu: 500m
+            memory: 500Mi
+        volumeMounts:
+        - name: varlog
+          mountPath: /var/log
+          readOnly: true
+        - name: varlibdockercontainers
+          mountPath: /var/lib/docker/containers
+          readOnly: true
+        - name: filebeat-config
+          mountPath: /usr/share/filebeat/config/filebeat.yml
+          subPath: filebeat.yml
+          readOnly: true
+        - name: filebeat-certs
+          mountPath: /usr/share/filebeat/config/certs
+          readOnly: true
+      volumes:
+      - name: varlog
+        hostPath:
+          path: /var/log
+      - name: varlibdockercontainers
+        hostPath:
+          path: /var/lib/docker/containers
+      - name: filebeat-config
+        configMap:
+          name: membo-config
+          items:
+          - key: filebeat.yml
+            path: filebeat.yml
+      - name: filebeat-certs
+        secret:
+          secretName: app-secrets
+          items:
+          - key: filebeat.key
+            path: filebeat.key
+            mode: 0600
+          - key: filebeat.crt
+            path: filebeat.crt
+            mode: 0600
+          - key: ca.crt
+            path: ca.crt
+            mode: 0600
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: membo-config
+  namespace: monitoring
+data:
+  filebeat.yml: |
+    setup.ilm.enabled: false
+    logging.level: info
+    logging.metrics.enabled: true
+    logging.json: true
+    monitoring.enabled: true
+
+    filebeat.inputs:
+    - type: container
+      paths:
+        - /var/log/containers/*.log
+      processors:
+        - add_kubernetes_metadata:
+            host: ${NODE_NAME}
+            matchers:
+            - logs_path:
+                logs_path: "/var/log/containers/"
+            default_matchers.enabled: true
+            add_resource_metadata:
+              enabled: true
+              namespace: true
+              pod: true
+              node: true
+              container: true
+        - decode_json_fields:
+            fields: ["message"]
+            target: ""
+            overwrite_keys: true
+        - timestamp:
+            field: "@timestamp"
+            timezone: "UTC"
+
+    output.logstash:
+      hosts: ["logstash:5044"]
+      ssl:
+        enabled: true
+        certificate: "/usr/share/filebeat/config/certs/filebeat.crt"
+        key: "/usr/share/filebeat/config/certs/filebeat.key"
+        certificate_authorities: ["/usr/share/filebeat/config/certs/ca.crt"]
+        verification_mode: "full"
+      worker: 2
+      compression_level: 3
+      bulk_max_size: 2048
+      timeout: 30s
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: filebeat-monitoring
+  namespace: monitoring
+  labels:
+    app: filebeat
+    component: logging
+spec:
+  type: ClusterIP
+  ports:
+  - name: monitoring
+    port: 5066
+    targetPort: 5066
+    protocol: TCP
+  selector:
+    app: filebeat
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: filebeat
+  labels:
+    app: filebeat
+rules:
+- apiGroups: [""]
+  resources:
+  - namespaces
+  - pods
+  - nodes
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: filebeat
+subjects:
+- kind: ServiceAccount
+  name: filebeat
+  namespace: monitoring
+roleRef:
+  kind: ClusterRole
+  name: filebeat
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: filebeat
+  namespace: monitoring
+  labels:
+    app: filebeat
