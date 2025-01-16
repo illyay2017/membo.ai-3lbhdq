@@ -1,0 +1,234 @@
+name: iOS Build & Deploy
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'src/ios/**'
+      - 'src/shared/**'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'src/ios/**'
+      - 'src/shared/**'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'testflight'
+        type: choice
+        options:
+          - testflight
+          - appstore
+      version:
+        description: 'Release version'
+        required: false
+        type: string
+
+env:
+  DEVELOPER_APP_IDENTIFIER: ai.membo.app
+  WORKSPACE: membo
+  SCHEME: membo
+  MAX_RETRIES: 3
+  DEPLOYMENT_TIMEOUT: 3600
+  NODE_VERSION: '20.x'
+  RUBY_VERSION: '3.2'
+  XCODE_VERSION: '15.0'
+
+jobs:
+  validate:
+    name: Validate Environment
+    runs-on: macos-latest
+    timeout-minutes: 10
+    steps:
+      - name: Security Scan Repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          
+      - name: Validate Secrets
+        run: |
+          required_secrets=(
+            "APPLE_ID"
+            "APPLE_TEAM_ID"
+            "MATCH_PASSWORD"
+            "MATCH_GIT_URL"
+            "APP_STORE_CONNECT_API_KEY"
+          )
+          for secret in "${required_secrets[@]}"; do
+            if [ -z "${!secret}" ]; then
+              echo "::error::Missing required secret: $secret"
+              exit 1
+            fi
+          done
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+
+  test:
+    name: Run Tests
+    needs: validate
+    runs-on: macos-latest
+    timeout-minutes: 45
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'yarn'
+          
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ env.RUBY_VERSION }}
+          bundler-cache: true
+          
+      - name: Cache Dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/Library/Caches/CocoaPods
+            Pods
+            vendor/bundle
+          key: ${{ runner.os }}-pods-${{ hashFiles('**/Podfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pods-
+
+      - name: Install Dependencies
+        run: |
+          yarn install --frozen-lockfile
+          bundle install
+          bundle exec pod install
+
+      - name: Run Fastlane Tests
+        run: bundle exec fastlane test
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-results
+          path: fastlane/test_output
+          retention-days: 14
+
+  deploy-testflight:
+    name: Deploy to TestFlight
+    needs: test
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'testflight')
+    runs-on: macos-latest
+    timeout-minutes: 60
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ env.RUBY_VERSION }}
+          bundler-cache: true
+          
+      - name: Install Dependencies
+        run: |
+          bundle install
+          bundle exec pod install
+          
+      - name: Deploy to TestFlight
+        run: bundle exec fastlane beta
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+          
+      - name: Notify Deployment
+        if: success() && env.NOTIFICATION_WEBHOOK != ''
+        run: |
+          curl -X POST ${{ secrets.NOTIFICATION_WEBHOOK }} \
+            -H 'Content-Type: application/json' \
+            -d '{"text":"Successfully deployed to TestFlight"}'
+
+  deploy-appstore:
+    name: Deploy to App Store
+    needs: test
+    if: |
+      github.event_name == 'workflow_dispatch' && 
+      github.event.inputs.environment == 'appstore'
+    runs-on: macos-latest
+    timeout-minutes: 60
+    environment: production
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ env.RUBY_VERSION }}
+          bundler-cache: true
+          
+      - name: Install Dependencies
+        run: |
+          bundle install
+          bundle exec pod install
+          
+      - name: Deploy to App Store
+        run: |
+          if [ ! -z "${{ github.event.inputs.version }}" ]; then
+            bundle exec fastlane release version:${{ github.event.inputs.version }}
+          else
+            bundle exec fastlane release
+          fi
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+          
+      - name: Notify Deployment
+        if: success() && env.NOTIFICATION_WEBHOOK != ''
+        run: |
+          curl -X POST ${{ secrets.NOTIFICATION_WEBHOOK }} \
+            -H 'Content-Type: application/json' \
+            -d '{"text":"Successfully deployed to App Store"}'
+
+  cleanup:
+    name: Cleanup
+    needs: [deploy-testflight, deploy-appstore]
+    if: always()
+    runs-on: macos-latest
+    steps:
+      - name: Remove Keychain
+        if: always()
+        run: |
+          security delete-keychain $RUNNER_TEMP/app-signing.keychain-db || true
+          
+      - name: Cleanup Artifacts
+        if: always()
+        run: |
+          rm -rf ~/Library/Developer/Xcode/DerivedData/* || true
+          rm -rf ~/Library/Caches/CocoaPods/* || true
