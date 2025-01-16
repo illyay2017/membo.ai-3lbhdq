@@ -1,0 +1,185 @@
+/* Import font families - v5.x */
+@import '@fontsource/inter/variable.css';
+@import '@fontsource/sf-pro-display/400.css';
+@import '@fontsource/sf-pro-display/600.css';
+@import '@fontsource/sf-pro-display/700.css';
+@import '@fontsource/jetbrains-mono/variable.css';
+
+/* Import Tailwind CSS */
+@import './tailwind.css';
+
+/* Root variables for design system */
+:root {
+  /* Typography */
+  --font-primary: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-secondary: 'SF Pro Display', system-ui, -apple-system, sans-serif;
+  --font-code: 'JetBrains Mono', monospace;
+
+  /* Colors */
+  --color-primary: #2563eb;
+  --color-primary-dark: #1d4ed8;
+  --color-secondary: #64748b;
+  --color-secondary-dark: #475569;
+  --color-accent: #0ea5e9;
+  --color-accent-dark: #0284c7;
+  --color-error: #ef4444;
+  --color-error-dark: #dc2626;
+
+  /* Spacing */
+  --spacing-base: 4px;
+  --spacing-1: calc(var(--spacing-base) * 1);
+  --spacing-2: calc(var(--spacing-base) * 2);
+  --spacing-3: calc(var(--spacing-base) * 3);
+  --spacing-4: calc(var(--spacing-base) * 4);
+  --spacing-6: calc(var(--spacing-base) * 6);
+  --spacing-8: calc(var(--spacing-base) * 8);
+  --spacing-12: calc(var(--spacing-base) * 12);
+  --spacing-16: calc(var(--spacing-base) * 16);
+
+  /* Animation */
+  --animation-duration: 150ms;
+
+  /* Focus */
+  --focus-ring: 0 0 0 2px var(--color-primary);
+  --focus-ring-dark: 0 0 0 2px var(--color-primary-dark);
+}
+
+/* Base HTML elements */
+html {
+  font-family: var(--font-primary);
+  font-size: 16px;
+  line-height: 1.5;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  scroll-behavior: smooth;
+  color-scheme: light dark;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  background-color: #ffffff;
+  color: #1f2937;
+  transition: background-color var(--animation-duration) ease;
+}
+
+/* Base styles with enhanced accessibility */
+@layer base {
+  /* Headings */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-secondary);
+    font-weight: 600;
+    line-height: 1.2;
+    margin: 0;
+    scroll-margin-top: var(--spacing-base);
+  }
+
+  /* Links */
+  a {
+    color: var(--color-primary);
+    text-decoration: none;
+    transition: color var(--animation-duration) ease;
+    outline: none;
+  }
+
+  a:hover {
+    color: var(--color-primary-dark);
+  }
+
+  a:focus-visible {
+    box-shadow: var(--focus-ring);
+  }
+
+  /* Buttons */
+  button {
+    font-family: var(--font-primary);
+    cursor: pointer;
+    outline: none;
+  }
+
+  button:focus-visible {
+    box-shadow: var(--focus-ring);
+  }
+
+  /* Code blocks */
+  code, pre {
+    font-family: var(--font-code);
+    tab-size: 2;
+  }
+
+  /* Reduced motion preferences */
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /* Dark mode */
+  @media (prefers-color-scheme: dark) {
+    body {
+      background-color: #0f172a;
+      color: #f8fafc;
+    }
+
+    a:hover {
+      color: var(--color-primary-dark);
+    }
+  }
+}
+
+/* Extended utility classes */
+@layer utilities {
+  /* Text balance for better typography */
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Hide scrollbars while maintaining functionality */
+  .scrollbar-hide {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Focus ring utilities */
+  .focus-ring {
+    box-shadow: var(--focus-ring);
+  }
+
+  .focus-ring-dark {
+    box-shadow: var(--focus-ring-dark);
+  }
+}
+
+/* Responsive breakpoints */
+@media (min-width: 320px) {
+  .mobile\: {
+    display: block;
+  }
+}
+
+@media (min-width: 768px) {
+  .tablet\: {
+    display: block;
+  }
+}
+
+@media (min-width: 1024px) {
+  .desktop\: {
+    display: block;
+  }
+}
+
+@media (min-width: 1280px) {
+  .wide\: {
+    display: block;
+  }
+}
