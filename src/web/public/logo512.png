@@ -1,0 +1,19 @@
+[Binary PNG Image Content]
+File characteristics:
+- Dimensions: 512x512 pixels
+- Format: PNG with transparency
+- Color space: sRGB
+- File size: Optimized to <100KB
+- Transparency: Enabled
+- Purpose: PWA icon, maskable
+- Compression: Lossless PNG optimization
+
+Creation/Optimization commands:
+1. Create 512x512 PNG with transparency
+2. Apply optimization:
+   imagemin logo512.png --plugin=pngquant
+   pngquant --quality=85-95 --strip --force --output logo512.png logo512.png
+
+Headers when served:
+Content-Type: image/png
+Cache-Control: public, max-age=604800, immutable
