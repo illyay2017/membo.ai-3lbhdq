@@ -1,0 +1,11 @@
+# Fastlane configuration for membo.ai Android app deployment
+# Version: 1.0.0
+# Last Updated: 2024
+
+# Path to the Google Play Store API key file for authentication
+# This file contains service account credentials for automated deployments
+json_key_file("../app/google-services.json")
+
+# Android application package identifier for Play Store deployment
+# This must match the applicationId in build.gradle
+package_name("ai.membo")
