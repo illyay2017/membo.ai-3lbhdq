@@ -1,0 +1,54 @@
+# Certificate resource for membo.ai TLS certificates
+# Version: cert-manager.io/v1
+# Manages automated TLS certificate lifecycle with Let's Encrypt integration
+# Certificate validity: 90 days with 15-day proactive renewal window
+
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: membo-tls
+  namespace: membo
+  labels:
+    app: membo
+    component: security
+    managed-by: cert-manager
+  annotations:
+    # Enable temporary certificates during initial provisioning
+    cert-manager.io/issue-temporary-certificate: "true"
+    # Always rotate private keys on renewal for enhanced security
+    cert-manager.io/private-key-rotation-policy: "Always"
+
+spec:
+  # Secret name where the certificate and private key will be stored
+  secretName: membo-tls
+
+  # Certificate duration (90 days = 2160 hours)
+  duration: "2160h"
+  
+  # Renewal window (15 days = 360 hours before expiry)
+  renewBefore: "360h"
+
+  # Private key configuration
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS1
+    size: 2048
+    rotationPolicy: Always
+
+  # Certificate subject configuration
+  commonName: membo.ai
+  dnsNames:
+    - membo.ai
+    - api.membo.ai
+
+  # Certificate issuer reference
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+    group: cert-manager.io
+
+  # Certificate usages
+  usages:
+    - digital signature
+    - key encipherment
+    - server auth
