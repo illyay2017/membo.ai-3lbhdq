@@ -1,0 +1,17 @@
+[BINARY PNG IMAGE CONTENT WITH THE FOLLOWING SPECIFICATIONS]
+
+Image Properties:
+- Dimensions: 192x192 pixels
+- Format: PNG (32-bit RGBA)
+- Color Mode: RGBA with transparency support
+- Compression: Lossless PNG compression
+
+Design Elements:
+- Background Color: #2563eb (Primary Blue)
+- Foreground Color: #ffffff (White)
+- Safe Zone: 144x144 pixels centered
+- Padding: 24 pixels on all sides
+- Corner Radius: Follows Android 12+ adaptive icon specifications
+- Density Qualifier: xxxhdpi (~640dpi)
+
+The image should be generated as a binary PNG file meeting Android launcher icon requirements for xxxhdpi devices and following Material Design guidelines for adaptive icons.
