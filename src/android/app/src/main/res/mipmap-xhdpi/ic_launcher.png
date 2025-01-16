@@ -1,0 +1,46 @@
+# Basic Image Properties
+Format: PNG
+Dimensions: 96x96dp (192x192 pixels at xhdpi)
+Color Space: sRGB
+Alpha Channel: Yes (Transparency supported)
+Compression: Optimal (< 100KB target size)
+
+# Design Specifications
+Style: Material Design Guidelines
+Safe Zone: Inner 66dp viewport
+Background: Solid shape with brand primary color
+Foreground: App logo with minimum 4.5:1 contrast ratio
+Padding: 8dp from edges
+Corner Radius: 20dp (Android 12+ rounded corners)
+Shadow: 1dp elevation at 15% opacity (optional)
+
+# Density & Scaling
+Density Bucket: xhdpi
+Scale Factor: 2.0x
+Target Resolution: @2x (192x192 pixels)
+
+# Platform Requirements
+Min SDK: 21
+Target SDK: 33
+Adaptive Icon: Yes
+Legacy Support: Yes
+
+# Quality Requirements
+Pixel Perfect: Required
+Theme Compatible: Light/Dark modes
+Load Time: < 100ms
+Memory Impact: Minimal
+Rendering: Crisp quality
+
+# Related Density Versions
+mdpi: 48x48dp (1.0x)
+hdpi: 72x72dp (1.5x)
+xxhdpi: 144x144dp (3.0x)
+xxxhdpi: 192x192dp (4.0x)
+
+# Implementation Notes
+- Implements Material Design icon guidelines
+- Supports Adaptive Icon specification
+- Maintains backward compatibility
+- Optimized for launcher visibility
+- Follows Android platform standards
