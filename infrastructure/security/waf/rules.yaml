@@ -1,0 +1,153 @@
+# WAF Rules Configuration for membo.ai
+# Version: 1.0.0
+# OWASP ModSecurity CRS Version: 3.3.4
+
+# Global Settings
+globals:
+  crs_paranoia_level: 2
+  anomaly_scoring_threshold: 5
+
+# Core WAF Rules
+core_rules:
+  request_validation:
+    allowed_http_methods:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+      - PATCH
+      - OPTIONS
+    max_request_length: 50MB
+    content_type_whitelist:
+      - application/json
+      - application/x-www-form-urlencoded
+      - multipart/form-data
+      - application/octet-stream
+    header_validation:
+      required_headers:
+        - Content-Type
+        - Authorization
+      max_header_length: 8KB
+      forbidden_headers:
+        - Proxy-
+        - Server-
+
+  attack_prevention:
+    sql_injection:
+      enabled: true
+      severity: CRITICAL
+      action: BLOCK
+      detection_points:
+        - REQUEST_URI
+        - REQUEST_BODY
+        - REQUEST_HEADERS
+      custom_rules:
+        - "(?i)(select.*from|union.*select|insert.*into)"
+
+    xss:
+      enabled: true
+      severity: CRITICAL
+      action: BLOCK
+      detection_points:
+        - REQUEST_URI
+        - REQUEST_BODY
+        - REQUEST_HEADERS
+      sanitization: true
+
+    csrf:
+      enabled: true
+      severity: HIGH
+      action: BLOCK
+      token_validation: true
+      exempt_urls:
+        - "/api/v1/public/*"
+
+    lfi_rfi:
+      enabled: true
+      severity: CRITICAL
+      action: BLOCK
+      restricted_patterns:
+        - "../"
+        - "file://"
+        - "php://"
+
+# Rate Limiting Rules
+rate_limiting:
+  free_tier:
+    requests_per_minute: 100
+    burst: 150
+    action: BLOCK
+    tracking_window: 1m
+    notification_threshold: 80
+
+  pro_tier:
+    requests_per_minute: 1000
+    burst: 1500
+    action: BLOCK
+    tracking_window: 1m
+    notification_threshold: 90
+
+  power_tier:
+    requests_per_minute: 5000
+    burst: 7500
+    action: BLOCK
+    tracking_window: 1m
+    notification_threshold: 95
+
+# Custom Endpoint-Specific Rules
+custom_rules:
+  voice_endpoints:
+    path_pattern: "/api/v1/voice/*"
+    max_payload_size: 10MB
+    allowed_content_types:
+      - audio/wav
+      - audio/mpeg
+      - audio/webm
+    rate_limit:
+      requests_per_minute: 60
+      burst: 90
+    validation:
+      required_headers:
+        - X-Audio-Format
+        - X-Device-ID
+      max_duration: 30s
+
+  study_endpoints:
+    path_pattern: "/api/v1/study/*"
+    max_sessions_per_user: 5
+    rate_limit:
+      requests_per_minute: 300
+      burst: 450
+    session_validation:
+      max_duration: 4h
+      inactivity_timeout: 30m
+
+  content_capture:
+    path_pattern: "/api/v1/content/*"
+    max_payload_size: 5MB
+    rate_limit:
+      requests_per_minute: 120
+      burst: 180
+    content_validation:
+      max_items_per_batch: 50
+      allowed_sources:
+        - web
+        - pdf
+        - kindle
+      required_metadata:
+        - source
+        - timestamp
+        - format
+
+# OWASP ModSecurity CRS Integration
+modsecurity:
+  include:
+    - modsecurity-crs/v3.3.4/crs-setup.conf
+    - modsecurity-crs/v3.3.4/rules/*.conf
+
+# Rule Export Configuration
+exports:
+  waf_rules:
+    core_rules: {}
+    rate_limiting: {}
+    custom_rules: {}
