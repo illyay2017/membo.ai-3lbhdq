@@ -1,0 +1,11 @@
+Resolution: 192x192 pixels (4.0x baseline density)
+Format: 32-bit PNG with alpha channel (RGBA)
+Color Depth: 32-bit color with transparency support
+Compression: Optimized PNG compression for mobile
+File Location: src/android/app/src/main/res/drawable-xxxhdpi/app_icon.png
+
+The image should follow Material Design icon guidelines and maintain:
+- Sharp edges and clear details at xxxhdpi scale
+- Accurate brand colors and design
+- Proper transparency for adaptive icon support
+- Optimized file size without quality loss
