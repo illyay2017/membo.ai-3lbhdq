@@ -1,0 +1,10 @@
+[Binary image data - 48x48 PNG file]
+
+A round launcher icon for the membo.ai Android application with the following specifications:
+- Dimensions: 48x48 pixels (mdpi density)
+- Format: PNG with transparency (RGBA color space)
+- Safe zone: 44x44 pixels for content
+- Adaptive icon support with foreground/background layers
+- Material Design compliant with proper padding and contrast
+- Supports Android API levels 21-33
+- Part of a complete icon set with hdpi (72x72), xhdpi (96x96), xxhdpi (144x144), and xxxhdpi (192x192) variants
