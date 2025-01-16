@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="#2563eb" role="img" aria-label="membo.ai logo">
+    <metadata>
+        <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+                 xmlns:dc="http://purl.org/dc/elements/1.1/">
+            <rdf:Description>
+                <dc:creator>membo.ai</dc:creator>
+                <dc:rights>membo.ai</dc:rights>
+                <dc:description>Primary brand logo following membo.ai design system color palette</dc:description>
+            </rdf:Description>
+        </rdf:RDF>
+    </metadata>
+    <title>membo.ai logo</title>
+    <desc>Primary brand logo following membo.ai design system color palette with primary blue (#2563eb)</desc>
+    <defs>
+        <clipPath id="circleClip">
+            <circle cx="12" cy="12" r="11"/>
+        </clipPath>
+    </defs>
+    <!-- Main circular container -->
+    <circle cx="12" cy="12" r="11" fill="#2563eb" opacity="0.1"/>
+    <!-- Brain symbol representing knowledge -->
+    <path d="M12 4C8.5 4 6 6.5 6 9.5c0 1.5.8 2.8 2 3.5v2.5c0 2.2 1.8 4 4 4s4-1.8 4-4v-2.5c1.2-.7 2-2 2-3.5 0-3-2.5-5.5-6-5.5zm0 12c-1.1 0-2-.9-2-2v-1.2c.6.2 1.3.2 2 .2s1.4-.1 2-.2V14c0 1.1-.9 2-2 2z" 
+          fill="#2563eb"/>
+    <!-- Connecting dots representing AI/neural network -->
+    <circle cx="8" cy="10" r="1" fill="#2563eb"/>
+    <circle cx="16" cy="10" r="1" fill="#2563eb"/>
+    <circle cx="12" cy="8" r="1" fill="#2563eb"/>
+    <!-- Pulse effect lines -->
+    <path d="M4 12h2M18 12h2M12 4v2M12 18v2" 
+          stroke="#2563eb" 
+          stroke-width="1.5" 
+          stroke-linecap="round"/>
+</svg>
