@@ -1,0 +1,279 @@
+# fastlane 2.217.0
+
+# Import app configuration from Appfile
+require_relative 'Appfile'
+
+# Import certificate management configuration from Matchfile
+require_relative 'Matchfile'
+
+# Default platform configuration
+default_platform(:ios)
+
+# Error tracking and monitoring configuration
+error_callback = lambda do |lane, exception, options|
+  # Report errors to Sentry
+  sentry_url = ENV["SENTRY_URL"]
+  if sentry_url
+    sh("curl -X POST #{sentry_url} -d '{\"error\": \"#{exception}\"}'")
+  end
+  
+  # Notify team via Slack
+  slack(
+    message: "Lane #{lane} failed with error: #{exception}",
+    success: false,
+    slack_url: ENV["SLACK_WEBHOOK_URL"]
+  ) if ENV["SLACK_WEBHOOK_URL"]
+end
+
+# Platform-specific configuration
+platform :ios do
+  # Environment validation
+  before_all do |lane, options|
+    ensure_xcode_version(version: "~> 15.0")
+    verify_build_env
+  end
+
+  # Setup development environment
+  lane :setup do |options|
+    UI.message("Setting up development environment...")
+    
+    begin
+      # Install dependencies
+      cocoapods(
+        clean_install: true,
+        repo_update: true,
+        try_repo_update_on_error: true
+      )
+
+      # Setup code signing
+      setup_code_signing
+    rescue => exception
+      handle_setup_error(exception)
+      raise exception
+    end
+  end
+
+  # Run tests with coverage
+  lane :test do |options|
+    UI.message("Running test suite...")
+    
+    begin
+      # Run unit tests
+      scan(
+        workspace: "#{ENV['WORKSPACE']}.xcworkspace",
+        scheme: ENV["SCHEME"],
+        device: "iPhone 14",
+        clean: true,
+        code_coverage: true,
+        fail_build: true,
+        result_bundle: true,
+        output_directory: "fastlane/test_output",
+        output_types: "html,junit",
+        slack_url: ENV["SLACK_WEBHOOK_URL"],
+        slack_channel: "#ios-builds",
+        retry_times: 2
+      )
+
+      # Process test results
+      process_test_results
+    rescue => exception
+      handle_test_error(exception)
+      raise exception
+    end
+  end
+
+  # Deploy to TestFlight
+  lane :beta do |options|
+    UI.message("Deploying to TestFlight...")
+    
+    begin
+      # Increment build number
+      increment_build_number(
+        build_number: latest_testflight_build_number + 1
+      )
+
+      # Update code signing
+      match(
+        type: "appstore",
+        readonly: true,
+        force_for_new_devices: true
+      )
+
+      # Build app
+      build_ios_app(
+        workspace: "#{ENV['WORKSPACE']}.xcworkspace",
+        scheme: ENV["SCHEME"],
+        export_method: "app-store",
+        export_options: {
+          provisioningProfiles: {
+            ENV["DEVELOPER_APP_IDENTIFIER"] => ENV["PROVISIONING_PROFILE_SPECIFIER"]
+          }
+        },
+        include_bitcode: false,
+        include_symbols: true,
+        clean: true
+      )
+
+      # Upload to TestFlight
+      upload_to_testflight(
+        skip_waiting_for_build_processing: true,
+        notify_external_testers: false,
+        changelog: generate_changelog,
+        distribute_external: false,
+        groups: ["Internal Testers"],
+        retry_times: 3
+      )
+
+      # Notify success
+      notify_beta_success
+    rescue => exception
+      handle_beta_error(exception)
+      raise exception
+    end
+  end
+
+  # Deploy to App Store
+  lane :release do |options|
+    UI.message("Deploying to App Store...")
+    
+    begin
+      # Verify release prerequisites
+      verify_release_readiness
+
+      # Increment version number
+      increment_version_number(
+        version_number: next_version_number
+      )
+
+      # Update code signing
+      match(
+        type: "appstore",
+        readonly: true,
+        force_for_new_devices: true
+      )
+
+      # Generate screenshots
+      capture_screenshots
+
+      # Build app
+      build_ios_app(
+        workspace: "#{ENV['WORKSPACE']}.xcworkspace",
+        scheme: ENV["SCHEME"],
+        export_method: "app-store",
+        export_options: {
+          provisioningProfiles: {
+            ENV["DEVELOPER_APP_IDENTIFIER"] => ENV["PROVISIONING_PROFILE_SPECIFIER"]
+          }
+        },
+        include_bitcode: false,
+        include_symbols: true,
+        clean: true
+      )
+
+      # Upload to App Store
+      upload_to_app_store(
+        force: true,
+        skip_metadata: false,
+        skip_screenshots: false,
+        submit_for_review: true,
+        automatic_release: false,
+        submission_information: submission_info,
+        precheck_include_in_app_purchases: true,
+        retry_times: 3
+      )
+
+      # Notify release submission
+      notify_release_submission
+    rescue => exception
+      handle_release_error(exception)
+      raise exception
+    end
+  end
+
+  # Helper methods
+  private
+
+  def verify_build_env
+    required_envs = [
+      "WORKSPACE", "SCHEME", "APPLE_ID", "APPLE_TEAM_ID",
+      "MATCH_PASSWORD", "MATCH_GIT_URL"
+    ]
+    
+    missing_envs = required_envs.select { |env| ENV[env].nil? }
+    UI.user_error!("Missing required environment variables: #{missing_envs.join(', ')}") unless missing_envs.empty?
+  end
+
+  def setup_code_signing
+    match(
+      type: "development",
+      readonly: true,
+      force_for_new_devices: true
+    )
+  end
+
+  def process_test_results
+    # Process coverage reports
+    xcov(
+      workspace: "#{ENV['WORKSPACE']}.xcworkspace",
+      scheme: ENV["SCHEME"],
+      output_directory: "fastlane/coverage",
+      minimum_coverage_percentage: 80.0
+    )
+  end
+
+  def generate_changelog
+    # Read changelog from file or generate automatically
+    changelog_from_git_commits(
+      merge_commit_filtering: "exclude_merges",
+      pretty: "- %s"
+    )
+  end
+
+  def submission_info
+    {
+      add_id_info_uses_idfa: false,
+      export_compliance_uses_encryption: false,
+      content_rights_contains_third_party_content: false
+    }
+  end
+
+  def notify_beta_success
+    slack(
+      message: "Successfully deployed to TestFlight!",
+      success: true,
+      slack_url: ENV["SLACK_WEBHOOK_URL"],
+      payload: {
+        "Build Date" => Time.new.to_s,
+        "Build Number" => get_build_number
+      }
+    ) if ENV["SLACK_WEBHOOK_URL"]
+  end
+
+  def notify_release_submission
+    slack(
+      message: "Successfully submitted to App Store Review!",
+      success: true,
+      slack_url: ENV["SLACK_WEBHOOK_URL"],
+      payload: {
+        "Version" => get_version_number,
+        "Build Number" => get_build_number
+      }
+    ) if ENV["SLACK_WEBHOOK_URL"]
+  end
+
+  def handle_setup_error(exception)
+    UI.error("Setup failed: #{exception.message}")
+  end
+
+  def handle_test_error(exception)
+    UI.error("Tests failed: #{exception.message}")
+  end
+
+  def handle_beta_error(exception)
+    UI.error("TestFlight deployment failed: #{exception.message}")
+  end
+
+  def handle_release_error(exception)
+    UI.error("App Store deployment failed: #{exception.message}")
+  end
+end
