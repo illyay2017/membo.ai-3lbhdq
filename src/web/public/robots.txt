@@ -1,0 +1,26 @@
+# Version: 1.0
+# Last updated: 2024
+
+# Global rules for all web crawlers
+User-agent: *
+
+# Allow public routes
+Allow: /
+Allow: /login
+Allow: /register
+Allow: /about
+Allow: /manifest.json
+
+# Disallow sensitive application routes
+Disallow: /api/
+Disallow: /study/
+Disallow: /cards/
+Disallow: /content/
+Disallow: /settings/
+Disallow: /dashboard/
+
+# Crawl rate control
+Crawl-delay: 10
+
+# Sitemap location
+Sitemap: https://membo.ai/sitemap.xml
