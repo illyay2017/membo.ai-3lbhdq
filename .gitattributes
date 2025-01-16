@@ -1,0 +1,46 @@
+* text=auto eol=lf
+
+# Binary files that should not be modified
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.woff2 binary
+*.jar binary
+*.pdf binary
+*.mp3 binary
+*.mp4 binary
+*.zip binary
+*.ttf binary
+*.eot binary
+
+# Language-specific diff patterns
+*.ts text diff=typescript
+*.tsx text diff=typescript
+*.js text diff=javascript
+*.jsx text diff=javascript
+*.java text diff=java
+*.m text diff=objectivec
+*.h text diff=objectivec
+*.mm text diff=objectivec
+*.swift text diff=swift
+*.py text diff=python
+*.css text diff=css
+*.scss text diff=css
+*.html text diff=html
+*.xml text diff=xml
+*.graphql text diff=graphql
+*.sql text diff=sql
+
+# Documentation and configuration files
+*.md text diff=markdown
+*.txt text
+*.json text
+*.yaml text
+*.yml text
+*.toml text
+*.ini text
+*.env text
+*.config text
+LICENSE text
+README text
