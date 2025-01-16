@@ -1,0 +1,262 @@
+# Fastfile for membo.ai Android app deployment
+# Version: 2.0.0
+# fastlane version: 2.212.2
+
+# Import required fastlane actions and helpers
+require 'fastlane'
+require 'slack-notifier'
+require 'json'
+
+# Set platform and default configuration
+platform :android do
+  # Default platform configuration
+  default_platform(:android)
+
+  # Environment configuration
+  ENV["GRADLE_PARALLEL_THREADS"] = "4"
+  ENV["FASTLANE_SKIP_UPDATE_CHECK"] = "true"
+  ENV["FASTLANE_HIDE_TIMESTAMP"] = "false"
+
+  # Enhanced error tracking and monitoring setup
+  error_callback = proc do |lane, exception, info|
+    # Capture error details
+    error_info = {
+      lane: lane,
+      error: exception.message,
+      backtrace: exception.backtrace&.first(5),
+      build_info: info
+    }
+
+    # Send error notification to Slack
+    slack(
+      message: "❌ Build Failed in lane #{lane}",
+      success: false,
+      payload: error_info,
+      default_payloads: [:git_branch, :last_git_commit]
+    )
+
+    # Upload crash report to Firebase
+    firebase_app_distribution_upload_crash(
+      app: ENV["FIREBASE_APP_ID"],
+      crash_report: error_info.to_json
+    )
+
+    # Clean up partial artifacts
+    gradle(task: "clean")
+  end
+
+  # Enhanced setup before any lane execution
+  before_all do |lane, options|
+    # Verify git status
+    ensure_git_status_clean
+
+    # Validate environment
+    validate_required_env_vars([
+      "GOOGLE_PLAY_JSON_KEY",
+      "SLACK_WEBHOOK_URL",
+      "FIREBASE_APP_ID"
+    ])
+
+    # Setup gradle configuration
+    gradle_properties = {
+      parallel: true,
+      max_workers: ENV["GRADLE_PARALLEL_THREADS"],
+      build_cache: true
+    }
+    
+    # Initialize monitoring
+    setup_monitoring
+  end
+
+  # Enhanced cleanup after lane execution
+  after_all do |lane, options|
+    # Clean build artifacts
+    gradle(task: "clean")
+
+    # Send success notification
+    slack(
+      message: "✅ Successfully completed lane: #{lane}",
+      success: true,
+      default_payloads: [:git_branch, :last_git_commit]
+    )
+
+    # Upload build metrics
+    upload_build_metrics(lane)
+  end
+
+  # Enhanced error handling
+  error do |lane, exception, info|
+    error_callback.call(lane, exception, info)
+  end
+
+  # Enhanced test lane with parallel execution
+  desc "Run tests with enhanced coverage reporting"
+  lane :test do
+    # Clean build environment
+    gradle(task: "clean", flags: "--parallel")
+
+    # Run unit tests in parallel
+    gradle(
+      task: "test",
+      flags: "--parallel --max-workers=4",
+      properties: {
+        "testCoverageEnabled" => "true"
+      }
+    )
+
+    # Run instrumentation tests
+    gradle(
+      task: "connectedAndroidTest",
+      flags: "--info"
+    )
+
+    # Generate coverage report
+    gradle(task: "jacocoTestReport")
+
+    # Upload coverage to Codecov
+    codecov_reporter(
+      token: ENV["CODECOV_TOKEN"],
+      flags: "unittests",
+      verbose: true
+    )
+  end
+
+  # Enhanced beta deployment lane
+  desc "Deploy a new beta version to the Play Store"
+  lane :beta do
+    # Verify build environment
+    verify_build_environment
+
+    # Increment version code
+    increment_version_code(
+      gradle_file_path: "../app/build.gradle"
+    )
+
+    # Generate changelog
+    changelog = generate_changelog
+
+    # Capture screenshots
+    capture_android_screenshots(
+      locales: ["en-US"],
+      clear_previous_screenshots: true
+    )
+
+    # Build release bundle
+    gradle(
+      task: "clean bundleRelease",
+      flags: "--parallel",
+      properties: {
+        "android.injected.signing.store.file" => ENV["KEYSTORE_PATH"],
+        "android.injected.signing.store.password" => ENV["KEYSTORE_PASSWORD"],
+        "android.injected.signing.key.alias" => ENV["KEY_ALIAS"],
+        "android.injected.signing.key.password" => ENV["KEY_PASSWORD"]
+      }
+    )
+
+    # Upload to Play Store beta track
+    upload_to_play_store(
+      track: "internal",
+      rollout: 0.5,
+      release_status: "draft",
+      mapping: "../app/build/outputs/mapping/release/mapping.txt",
+      skip_upload_metadata: false,
+      skip_upload_images: false,
+      skip_upload_screenshots: false,
+      version_code: gradle_get_version_code,
+      changelog: changelog
+    )
+
+    # Upload mapping file to Firebase
+    upload_symbols_to_firebase_crashlytics(
+      app_id: ENV["FIREBASE_APP_ID"],
+      mapping_path: "../app/build/outputs/mapping/release/mapping.txt"
+    )
+  end
+
+  # Enhanced production deployment lane
+  desc "Deploy a new production release to the Play Store"
+  lane :deploy do
+    # Verify production readiness
+    verify_production_readiness
+
+    # Ensure we're on main branch
+    ensure_git_branch(
+      branch: 'main'
+    )
+
+    # Verify changelog and screenshots
+    verify_changelog
+    verify_screenshots
+
+    # Build release bundle
+    gradle(
+      task: "clean bundleRelease",
+      flags: "--parallel",
+      properties: {
+        "android.injected.signing.store.file" => ENV["KEYSTORE_PATH"],
+        "android.injected.signing.store.password" => ENV["KEYSTORE_PASSWORD"],
+        "android.injected.signing.key.alias" => ENV["KEY_ALIAS"],
+        "android.injected.signing.key.password" => ENV["KEY_PASSWORD"]
+      }
+    )
+
+    # Run security scan
+    run_security_scan
+
+    # Upload to Play Store production track
+    upload_to_play_store(
+      track: "production",
+      rollout: 0.1,
+      release_status: "completed",
+      mapping: "../app/build/outputs/mapping/release/mapping.txt",
+      skip_upload_metadata: false,
+      skip_upload_images: false,
+      skip_upload_screenshots: false,
+      version_code: gradle_get_version_code
+    )
+
+    # Tag release
+    tag_release
+
+    # Upload release artifacts
+    upload_release_artifacts
+  end
+
+  # Helper methods
+  private
+
+  def verify_build_environment
+    UI.message "Verifying build environment..."
+    # Add environment verification logic
+  end
+
+  def verify_production_readiness
+    UI.message "Verifying production readiness..."
+    # Add production verification logic
+  end
+
+  def setup_monitoring
+    UI.message "Setting up monitoring..."
+    # Add monitoring setup logic
+  end
+
+  def upload_build_metrics(lane)
+    UI.message "Uploading build metrics..."
+    # Add metrics upload logic
+  end
+
+  def run_security_scan
+    UI.message "Running security scan..."
+    # Add security scan logic
+  end
+
+  def tag_release
+    UI.message "Tagging release..."
+    # Add release tagging logic
+  end
+
+  def upload_release_artifacts
+    UI.message "Uploading release artifacts..."
+    # Add artifacts upload logic
+  end
+end
