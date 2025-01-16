@@ -1,0 +1,90 @@
+apiVersion: velero.io/v1
+kind: Backup
+metadata:
+  name: membo-backup
+  namespace: velero
+  labels:
+    app: membo-ai
+    environment: production
+    backup-type: full
+    compliance-level: high
+    data-sensitivity: confidential
+  annotations:
+    # AES-256 encryption for data at rest
+    encryption.velero.io/provider: aes256
+    # Multi-region storage for redundancy
+    backup.velero.io/storage-location: gcp-multi-region
+    # 30-day retention period (720 hours)
+    backup.velero.io/retention-period: "720h"
+
+spec:
+  # Target the membo application namespace
+  includedNamespaces:
+    - membo
+  excludedNamespaces: []
+  
+  # Include all resource types except non-critical ones
+  includedResources:
+    - "*"
+  excludedResources:
+    - events
+    - metrics
+    - events.events.k8s.io
+    - endpoints
+    - endpointslices
+    - horizontalpodautoscalers.autoscaling
+  
+  # Include cluster-scoped resources
+  includeClusterResources: true
+  
+  # Only backup resources with membo-ai label
+  labelSelector:
+    matchLabels:
+      app: membo-ai
+  
+  # Enable volume snapshots
+  snapshotVolumes: true
+  volumeSnapshotLocations:
+    - gcp-primary
+    - gcp-backup
+  
+  # Use multi-region storage
+  storageLocation: gcp-multi-region
+  
+  # 30-day TTL (720 hours)
+  ttl: "720h"
+  
+  # Pre and post backup hooks
+  hooks:
+    resources:
+      - name: database-backup
+        includedNamespaces:
+          - membo
+        labelSelector:
+          matchLabels:
+            app: membo-ai
+            component: database
+        # Pre-backup database dump with compression and checksum
+        pre:
+          - exec:
+              command:
+                - /bin/sh
+                - -c
+                - pg_dump -U postgres -F custom -Z 9 -f /backup/db.backup membo && sha256sum /backup/db.backup > /backup/db.backup.sha256
+              timeout: "30m"
+              onError: Fail
+        # Post-backup verification and cleanup
+        post:
+          - exec:
+              command:
+                - /bin/sh
+                - -c
+                - pg_verifier -f /backup/db.backup && rm -f /backup/db.backup*
+              timeout: "15m"
+              onError: Continue
+  
+  # Enable comprehensive backup validation
+  validation:
+    validateBackup: true
+    validateRestore: true
+    validateSnapshots: true
