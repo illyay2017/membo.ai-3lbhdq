@@ -1,0 +1,13 @@
+# fastlane 2.217.0
+
+# App bundle identifier matching GoogleService-Info.plist and Matchfile
+app_identifier("ai.membo.app")
+
+# Apple ID for App Store Connect authentication - stored securely in environment variables
+apple_id(ENV["APPLE_ID"])
+
+# Apple Developer Team identifier for app signing and deployment
+team_id(ENV["APPLE_TEAM_ID"])
+
+# App Store Connect Team identifier for deployment and distribution
+itc_team_id(ENV["APP_STORE_CONNECT_TEAM_ID"])
