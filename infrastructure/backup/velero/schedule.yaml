@@ -1,0 +1,62 @@
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: membo-daily-backup
+  namespace: velero
+  labels:
+    app: membo-ai
+    environment: production
+    backup-type: scheduled
+spec:
+  # Daily backup at 1:00 AM UTC
+  schedule: "0 1 * * *"
+  template:
+    # Include only membo namespace resources
+    includedNamespaces:
+      - membo
+    excludedNamespaces: []
+    
+    # Include all resource types except system events and metrics
+    includedResources:
+      - "*"
+    excludedResources: 
+      - events
+      - metrics
+      - events.events.k8s.io
+    
+    # Include cluster-scoped resources
+    includeClusterResources: true
+    
+    # Only backup resources with membo-ai label
+    labelSelector:
+      matchLabels:
+        app: membo-ai
+    
+    # Enable volume snapshots
+    snapshotVolumes: true
+    volumeSnapshotLocations:
+      - gcp
+    
+    # Use GCP as storage location
+    storageLocation: gcp
+    
+    # 30 day retention (720 hours)
+    ttl: "720h"
+    
+    # Pre-backup hooks for database dump
+    hooks:
+      resources:
+        - name: database-backup
+          includedNamespaces:
+            - membo
+          labelSelector:
+            matchLabels:
+              app: membo-ai
+              component: database
+          pre:
+            - exec:
+                command:
+                  - /bin/sh 
+                  - -c
+                  - pg_dump -U postgres membo > /backup/db.sql
+                timeout: "30m"
