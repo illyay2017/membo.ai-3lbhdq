@@ -1,0 +1,37 @@
+Format: PNG (Portable Network Graphics)
+Dimensions: 144x144 pixels
+Density: xxhdpi (480dpi)
+Scale Factor: 3.0x
+Color Space: sRGB
+Alpha Channel: Yes (transparency supported)
+Safe Zone: 132x132 pixels (91.67% of total area)
+File Optimization: Compressed PNG with minimal file size
+
+Adaptive Icon Support:
+- Foreground Layer: Icon artwork with transparency
+- Background Layer: Brand color background
+- Mask Support: Compatible with circle, squircle, and rounded square
+- Safe Zone Compliance: All critical elements within 132x132px area
+
+Design Requirements:
+- Material Design icon guidelines compliance
+- Minimum contrast ratio 4.5:1
+- Distinct silhouette recognition
+- Color blindness accessibility tested
+- Android 12+ adaptive icon specification compliance
+
+Platform Compatibility:
+- Android 7.0 through 13 support
+- Adaptive icon support for Android 8.0+
+- Material You compatibility for Android 12+
+- Optimized for xxhdpi devices (480dpi)
+
+Usage Contexts:
+- Launcher icon (home screen and app drawer)
+- Settings menu icon
+- Launch screen display (scaled to 120dp)
+
+Technical Optimization:
+- System-level icon caching optimized
+- Minimal RAM footprint
+- Optimized for system scaling algorithms
