@@ -1,0 +1,64 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: membo-ingress
+  namespace: membo
+  annotations:
+    # Ingress class and GCP configuration
+    kubernetes.io/ingress.class: "gce"
+    kubernetes.io/ingress.global-static-ip-name: "membo-ip"
+    networking.gke.io/managed-certificates: "membo-tls"
+    networking.gke.io/v1beta1.FrontendConfig: "membo-frontend-config"
+    
+    # Load balancer configuration
+    cloud.google.com/load-balancer-type: "External"
+    cloud.google.com/backend-config: '{"default": "membo-backend-config"}'
+    cloud.google.com/neg: '{"ingress": true}'
+    
+    # SSL/TLS configuration
+    cloud.google.com/app-protocols: '{"https": "HTTPS"}'
+    cloud.google.com/ssl-policy: "modern-tls13"
+    ingress.kubernetes.io/force-ssl-redirect: "true"
+    ingress.kubernetes.io/ssl-redirect: "true"
+    
+    # HSTS configuration
+    ingress.kubernetes.io/hsts-max-age: "31536000"
+    ingress.kubernetes.io/hsts-include-subdomains: "true"
+    
+    # CDN configuration
+    cloud.google.com/cdn-config: '{"enabled": true, "cacheMode": "CACHE_ALL_STATIC", "defaultTtl": "3600s"}'
+    
+    # Health check configuration
+    cloud.google.com/health-check-path: "/health"
+
+spec:
+  tls:
+    - secretName: membo-tls
+      hosts:
+        - membo.ai
+        - api.membo.ai
+  
+  rules:
+    # Web frontend routing
+    - host: membo.ai
+      http:
+        paths:
+          - path: /*
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: web-service
+                port:
+                  number: 3000
+    
+    # API backend routing
+    - host: api.membo.ai
+      http:
+        paths:
+          - path: /*
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: backend-service
+                port:
+                  number: 4000
