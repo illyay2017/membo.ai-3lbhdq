@@ -1,0 +1,42 @@
+[Binary PNG file with the following specifications]
+
+Format: PNG
+Dimensions: 48x48 pixels
+Color Space: sRGB
+Alpha Channel: Yes (transparency enabled)
+Density: mdpi (1.0x baseline, ~160dpi)
+
+Image Structure:
+- Adaptive Icon Compatible (Android 8.0+)
+- Safe Zone: 44x44dp inner area
+- 1dp padding for optical alignment
+- Layered composition:
+  - Background Layer: Solid color #2563eb (Primary brand color)
+  - Foreground Layer: App logo in white (#FFFFFF)
+  - Optical bounds respected for proper visual weight
+
+Technical Requirements:
+- PNG compression: Optimized
+- Color depth: 32-bit (RGBA)
+- Interlacing: None
+- Metadata: Minimal required for Android
+- File size: Optimized (<5KB target)
+
+Material Design Guidelines:
+- Keyline grid: 48x48dp
+- Corner rounding: Following adaptive icon spec
+- Shadow treatment: None (handled by system)
+- Contrast ratio: Meets accessibility standards
+
+Quality Specifications:
+- Sharp edges at 100% scale
+- No upscaling artifacts
+- Proper antialiasing
+- No color banding
+- Pixel-perfect alignment
+
+This icon serves as the mdpi (baseline) reference for other density variants:
+- hdpi: 72x72px (1.5x)
+- xhdpi: 96x96px (2.0x)
+- xxhdpi: 144x144px (3.0x)
+- xxxhdpi: 192x192px (4.0x)
