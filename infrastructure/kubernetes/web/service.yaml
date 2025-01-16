@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-service
+  namespace: membo
+  labels:
+    app: membo
+    component: web
+  annotations:
+    # Enable GCP NEG for ingress integration
+    cloud.google.com/neg: '{"ingress": true}'
+    # Configure GCP backend settings for load balancing
+    cloud.google.com/backend-config: '{"default": "membo-backend-config"}'
+spec:
+  # NodePort type for GCP load balancer integration
+  type: NodePort
+  # Selector matches labels from web frontend deployment
+  selector:
+    app: membo
+    component: web
+  # Port configuration for web frontend service
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000
+      protocol: TCP
