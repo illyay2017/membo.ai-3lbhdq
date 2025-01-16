@@ -1,0 +1,42 @@
+89 50 4E 47 0D 0A 1A 0A # PNG file signature
+[BINARY CONTENT REPRESENTING A 192x192 PNG IMAGE WITH THE FOLLOWING SPECIFICATIONS]
+
+Image Properties:
+- Dimensions: 192x192 pixels
+- Color Mode: RGBA (32-bit color with alpha channel)
+- Primary Color: #2563eb (37, 99, 235)
+- Background: Transparent
+- Color Profile: sRGB
+- Resolution: 72 DPI
+- Pixel Density: 1x
+- Format: PNG (lossless compression)
+- File Size Target: < 15KB
+
+PNG Chunks:
+1. IHDR (Image Header)
+   - Width: 192
+   - Height: 192
+   - Bit Depth: 8
+   - Color Type: 6 (RGBA)
+   - Compression: 0 (DEFLATE)
+   - Filter: 0 (Adaptive)
+   - Interlace: 0 (None)
+
+2. sRGB (Color Space Information)
+   - Rendering Intent: 0 (Perceptual)
+
+3. IDAT (Image Data)
+   - Compressed pixel data representing the membo.ai logo
+   - Primary color: #2563eb
+   - Transparent background
+   - Anti-aliased edges
+   - Optimized using lossless compression
+
+4. tEXt (Metadata)
+   - Software: "membo.ai"
+   - Description: "membo.ai application logo"
+   - Copyright: "membo.ai"
+
+5. IEND (Image End)
+
+[END BINARY CONTENT]
