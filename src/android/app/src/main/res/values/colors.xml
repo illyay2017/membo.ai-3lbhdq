@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Brand Colors -->
+    <color name="colorPrimary">#2563eb</color>
+    <color name="colorPrimaryDark">#1e40af</color>
+    <color name="colorPrimaryLight">#3b82f6</color>
+    
+    <color name="colorSecondary">#64748b</color>
+    <color name="colorSecondaryDark">#475569</color>
+    <color name="colorSecondaryLight">#94a3b8</color>
+    
+    <color name="colorAccent">#0ea5e9</color>
+
+    <!-- State Colors -->
+    <color name="colorError">#ef4444</color>
+    <color name="colorSuccess">#22c55e</color>
+    <color name="colorWarning">#f59e0b</color>
+
+    <!-- Surface Colors -->
+    <color name="colorBackground">#ffffff</color>
+    <color name="colorSurface">#f8fafc</color>
+
+    <!-- Text Colors -->
+    <color name="colorText">#0f172a</color>
+    <color name="colorTextSecondary">#64748b</color>
+
+    <!-- Utility Colors -->
+    <color name="colorBorder">#e2e8f0</color>
+    <color name="colorDivider">#f1f5f9</color>
+    <color name="colorOverlay">#990f172a</color>
+    <color name="colorRipple">#3364748b</color>
+
+    <!-- Loading State Colors -->
+    <color name="colorShimmer">#f1f5f9</color>
+    <color name="colorShimmerHighlight">#e2e8f0</color>
+</resources>
