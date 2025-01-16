@@ -1,0 +1,62 @@
+buildscript {
+    ext {
+        buildToolsVersion = "33.0.0"
+        minSdkVersion = 24
+        compileSdkVersion = 33
+        targetSdkVersion = 33
+        kotlinVersion = "1.8.0"
+        androidXVersion = "1.6.1"
+        androidXAnnotation = "1.6.0"
+        androidXCore = "1.6.0"
+        materialVersion = "1.9.0"
+        soloaderVersion = "0.10.5"
+        junitVersion = "4.13.2"
+        mockitoVersion = "5.3.1"
+        mockitoAndroidVersion = "5.4.0"
+        androidTestVersion = "1.5.0"
+        androidTestExtVersion = "1.1.5"
+        benchmarkVersion = "1.1.1"
+        hamcrestVersion = "2.2"
+    }
+
+    repositories {
+        google()
+        mavenCentral()
+    }
+
+    dependencies {
+        classpath "com.android.tools.build:gradle:7.3.1"
+        classpath "com.facebook.react:react-native-gradle-plugin:0.72.0"
+        classpath "com.google.gms:google-services:4.3.15"
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+        maven { url "https://www.jitpack.io" }
+    }
+
+    configurations.all {
+        resolutionStrategy {
+            force "androidx.core:core-ktx:1.9.0"
+            force "androidx.appcompat:appcompat:1.6.1"
+            force "androidx.annotation:annotation:${rootProject.ext.androidXAnnotation}"
+            force "androidx.core:core:${rootProject.ext.androidXCore}"
+            force "com.google.android.material:material:${rootProject.ext.materialVersion}"
+            force "com.facebook.soloader:soloader:${rootProject.ext.soloaderVersion}"
+            force "junit:junit:${rootProject.ext.junitVersion}"
+            force "org.mockito:mockito-core:${rootProject.ext.mockitoVersion}"
+            force "org.mockito:mockito-android:${rootProject.ext.mockitoAndroidVersion}"
+            force "androidx.test:runner:${rootProject.ext.androidTestVersion}"
+            force "androidx.test.ext:junit:${rootProject.ext.androidTestExtVersion}"
+            force "androidx.benchmark:benchmark-junit4:${rootProject.ext.benchmarkVersion}"
+            force "org.hamcrest:hamcrest:${rootProject.ext.hamcrestVersion}"
+        }
+    }
+}
+
+task clean(type: Delete) {
+    delete rootProject.buildDir
+}
