@@ -1,0 +1,26 @@
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+        maven { url 'https://www.jitpack.io' } // Required for voice processing dependencies
+    }
+}
+
+apply plugin: "@react-native/gradle-plugin" // version: 0.72.0
+applyReactNativeDefaults()
+
+rootProject.name = 'membo'
+include ':app'
+
+// Enable parallel project execution for better build performance
+gradle.startParameter.configureOnDemand = true
+gradle.startParameter.parallel = true
