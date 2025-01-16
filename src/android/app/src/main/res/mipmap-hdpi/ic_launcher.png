@@ -1,0 +1,17 @@
+[Binary PNG file with the following specifications]
+
+Resolution: 72x72 pixels
+Format: PNG (Portable Network Graphics)
+Color Space: RGBA (with alpha channel for transparency)
+Density: hdpi (High Density)
+Adaptive Icon Layers:
+- Foreground: Vector drawable with app logo
+- Background: Solid color or gradient matching app theme
+- Safe Zone: 46.08x46.08 pixels (66% of 72x72)
+Mask: Android 12+ rounded square specification
+Optimization:
+- Compressed PNG format
+- Minimal memory footprint
+- Quick loading optimized
+
+The image should follow material design guidelines and maintain consistent branding with other density variants (mdpi, xhdpi, xxhdpi, xxxhdpi) while being optimized for hdpi displays.
