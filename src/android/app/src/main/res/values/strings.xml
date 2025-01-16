@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Application name -->
+    <string name="app_name">membo.ai</string>
+
+    <!-- Permission rationales -->
+    <string name="voice_permission_rationale">membo.ai needs microphone access to enable voice-based study mode. This helps you practice hands-free and improve pronunciation. We only access the microphone during study sessions.</string>
+    <string name="storage_permission_rationale">membo.ai needs storage access to save your study materials offline. This ensures you can study even without internet connection. Your content remains private and encrypted.</string>
+
+    <!-- Voice interaction prompts -->
+    <string name="study_mode_voice_prompt">Ready for your answer! Speak naturally or tap anywhere to reveal the card.</string>
+
+    <!-- Success messages -->
+    <string name="content_capture_success">Content saved successfully! Added to your study materials.</string>
+
+    <!-- Error messages -->
+    <string name="error_network">Unable to connect. Please check your internet connection and try again.</string>
+    <string name="error_voice_unavailable">Voice recognition isn\'t available right now. Please check microphone permissions or try text mode.</string>
+
+    <!-- Button labels -->
+    <string name="button_retry">Retry</string>
+    <string name="button_continue">Continue</string>
+    <string name="button_cancel">Cancel</string>
+</resources>
