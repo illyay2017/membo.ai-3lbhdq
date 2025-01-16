@@ -1,0 +1,46 @@
+# cert-manager ClusterIssuer for Let's Encrypt Production
+# Version: cert-manager.io/v1
+# Purpose: Automated TLS certificate management for membo.ai infrastructure
+# Rate Limits: 
+# - 5 duplicate certificates per week
+# - 300 new orders per 3 hours
+# - 5 failed validations per account per hostname per hour
+
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+  namespace: cert-manager
+  labels:
+    app.kubernetes.io/name: cert-manager
+    app.kubernetes.io/component: cluster-issuer
+    app.kubernetes.io/part-of: membo-infrastructure
+  annotations:
+    cert-manager.io/renewal-window: "720h" # 30 days
+    cert-manager.io/retry-period: "600s" # 10 minutes
+    monitoring.membo.ai/certificate-expiry-alert: "720h" # 30 days
+    monitoring.membo.ai/validation-failure-alert: "immediate"
+spec:
+  acme:
+    # Production ACME server URL for Let's Encrypt
+    server: https://acme-v02.api.letsencrypt.org/directory
+    # Contact email for important notifications about certificates
+    email: security@membo.ai
+    # Secret to store the ACME account private key
+    privateKeySecretRef:
+      name: letsencrypt-prod-account-key
+    # Challenge solver configuration
+    solvers:
+    - http01:
+        ingress:
+          class: gce
+          podTemplate:
+            spec:
+              nodeSelector:
+                cloud.google.com/gke-nodepool: default-pool
+              tolerations:
+              - effect: NoSchedule
+                key: dedicated
+                operator: Equal
+                value: cert-manager
+          serviceType: ClusterIP
