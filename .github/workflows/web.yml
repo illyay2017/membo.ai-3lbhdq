@@ -93,7 +93,7 @@ jobs:
           key: build-${{ github.sha }}
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: web-build
           path: ${{ env.WORKING_DIRECTORY }}/dist
