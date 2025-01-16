@@ -1,0 +1,28 @@
+Image Properties:
+- Dimensions: 144x144 pixels
+- Format: PNG (32-bit with alpha channel)
+- Color Space: sRGB
+- Density: xxhdpi (3.0x)
+
+Design Elements:
+- Shape: Perfect circle with transparent edges
+- Background Layer: Radial gradient from #2563eb (center) to #1d4ed8 (edges)
+- Foreground Layer: White monochrome app logo (#ffffff)
+- Safe Zone: Center 66% of total area
+- Padding: 10% from edges
+
+Optimization Requirements:
+- Maximum File Size: 100KB
+- Compression: Optimized using pngquant and optipng
+- Compression Level: 9 (maximum)
+- Quality Threshold: 90%
+- Transparency: Preserved
+- Color Depth: 32-bit
+
+Material Design Compliance:
+- Adaptive Icon Compatible
+- Minimum Contrast Ratio: 4.5:1
+- Platform Support: Android 7.1+
+- Usage: App launcher, Settings, Task switcher
+
+The binary image file should be created using professional image editing software and optimized using the specified tools while maintaining visual quality and adhering to all technical requirements.
