@@ -1,0 +1,14 @@
+The gradle-wrapper.jar file is a special binary executable that ensures all developers and CI systems use a consistent version of Gradle for building the project.
+
+This file should be obtained from the official Gradle distribution and should not be modified.
+
+Current version: Gradle 8.2
+
+The wrapper JAR works in conjunction with:
+- gradle-wrapper.properties - Contains configuration like distributionUrl
+- gradlew script - Shell script for Unix systems
+- gradlew.bat - Batch script for Windows systems
+
+Do not modify this binary file. If you need to upgrade Gradle:
+1. Update the version in gradle-wrapper.properties
+2. Run: ./gradlew wrapper --gradle-version <new_version>
