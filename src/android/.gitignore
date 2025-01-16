@@ -1,0 +1,88 @@
+*.apk
+*.aab
+*.ap_
+*.aar
+
+# Files for the ART/Dalvik VM
+*.dex
+
+# Java class files
+*.class
+
+# Generated files
+bin/
+gen/
+out/
+
+# Gradle files
+.gradle/
+build/
+app/build/
+.externalNativeBuild/
+.cxx/
+generated/
+intermediates/
+tmp/
+
+# Local configuration files
+local.properties
+keystore.properties
+*.keystore
+*.jks
+*.p12
+*.pem
+upload-keystore.jks
+debug.keystore
+release.keystore
+google-services.json
+firebase-app-distribution.json
+
+# Android Studio
+*.iml
+.idea/
+.project
+.classpath
+.settings/
+.vscode/
+
+# Debug files
+captures/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+android/app/src/main/assets/index.android.bundle
+android/app/src/main/assets/index.android.bundle.meta
+stacktrace.txt
+firebase-debug.log
+crashlytics-build.properties
+*.hprof
+
+# OS-specific files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+*.swp
+*~
+
+# Release directories
+app/release/
+app/debug/
+
+# Bundle artifact
+*.bundle
+*.bundle.meta
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output
+fastlane/readme.md
+
+# Code coverage
+coverage/
