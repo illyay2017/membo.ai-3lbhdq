@@ -1,0 +1,26 @@
+# -------------------------
+# Dimensions: 180x180 pixels
+# Format: PNG
+# Color Space: RGB
+# Scale Factor: @3x
+# Target: iPhone 6 Plus and later models
+# Max File Size: 100KB
+# Min Quality: 95%
+# 
+# Generation Requirements:
+# ----------------------
+# 1. Create 180x180 pixel PNG with RGB color space
+# 2. Ensure square aspect ratio
+# 3. Use opaque background
+# 4. Apply automatic corner radius
+# 5. Optimize using ImageOptim/TinyPNG while maintaining 95%+ quality
+# 6. Verify no transparency
+# 7. Validate @3x resolution quality
+# 
+# Deployment Target: iOS 13.0+
+# Asset Version: 1.0.0
+# Last Updated: 2024-01-01
+#
+# Note: This is a binary PNG file. The actual image data would be 
+# generated using appropriate image creation tools and exported
+# according to these specifications.
