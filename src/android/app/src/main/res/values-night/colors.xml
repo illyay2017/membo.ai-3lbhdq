@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Brand Colors -->
+    <color name="colorPrimary">#3b82f6</color>
+    <color name="colorPrimaryDark">#1d4ed8</color>
+    <color name="colorPrimaryLight">#60a5fa</color>
+    <color name="colorSecondary">#94a3b8</color>
+    <color name="colorSecondaryDark">#64748b</color>
+    <color name="colorSecondaryLight">#cbd5e1</color>
+    <color name="colorAccent">#38bdf8</color>
+
+    <!-- State Colors -->
+    <color name="colorError">#f87171</color>
+    <color name="colorSuccess">#4ade80</color>
+    <color name="colorWarning">#fbbf24</color>
+
+    <!-- Surface Colors - OLED optimized -->
+    <color name="colorBackground">#0f172a</color>
+    <color name="colorSurface">#1e293b</color>
+
+    <!-- Text Colors - WCAG AA compliant -->
+    <color name="colorText">#f8fafc</color>
+    <color name="colorTextSecondary">#94a3b8</color>
+
+    <!-- Utility Colors -->
+    <color name="colorBorder">#334155</color>
+    <color name="colorDivider">#1e293b</color>
+    <color name="colorOverlay">#cc0f172a</color>
+    <color name="colorRipple">#3394a3b8</color>
+
+    <!-- Loading State Colors -->
+    <color name="colorShimmer">#1e293b</color>
+    <color name="colorShimmerHighlight">#334155</color>
+</resources>
