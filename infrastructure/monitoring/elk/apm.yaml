@@ -1,0 +1,180 @@
+# APM Server Deployment for membo.ai monitoring infrastructure
+# Version: 8.11.1
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: apm-config
+  namespace: monitoring
+  labels:
+    app: apm-server
+    component: monitoring
+    part-of: membo-monitoring
+data:
+  apm-server.yml: |
+    apm-server:
+      host: "${APM_SERVER_HOST}"
+      max_header_size: "${MAX_EVENT_SIZE}"
+      read_timeout: 30s
+      write_timeout: 30s
+      max_event_size: "${MAX_EVENT_SIZE}"
+      concurrent_requests: 5
+      rum:
+        enabled: true
+        rate_limit: 10
+        allow_origins: ["https://*.membo.ai"]
+        source_mapping:
+          enabled: true
+          cache:
+            expiration: 1h
+
+    output.elasticsearch:
+      hosts: ["http://elasticsearch:9200"]
+      protocol: "http"
+      username: "${ELASTIC_USER}"
+      password: "${ELASTIC_PASSWORD}"
+      worker: 4
+      bulk_max_size: 5120
+      flush_interval: 1s
+      compression_level: 5
+      timeout: 30s
+      backoff:
+        init: 1s
+        max: 60s
+
+    monitoring:
+      enabled: "${MONITORING_ENABLED}"
+      elasticsearch:
+        username: "${ELASTIC_USER}"
+        password: "${ELASTIC_PASSWORD}"
+        metrics:
+          interval: 30s
+        state:
+          period: 1m
+
+    logging:
+      level: "${LOG_LEVEL}"
+      to_files: true
+      files:
+        path: /var/log/apm-server
+        name: apm-server.log
+        keepfiles: 7
+        permissions: 0644
+        rotateeverybytes: 10485760
+      metrics:
+        enabled: true
+        period: 30s
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: apm-server
+  namespace: monitoring
+  labels:
+    app: apm-server
+    component: monitoring
+    part-of: membo-monitoring
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: apm-server
+  template:
+    metadata:
+      labels:
+        app: apm-server
+        component: monitoring
+        part-of: membo-monitoring
+    spec:
+      containers:
+      - name: apm-server
+        image: docker.elastic.co/apm/apm-server:8.11.1
+        ports:
+        - containerPort: 8200
+          name: apm-server
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 200m
+            memory: 512Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+        env:
+        - name: APM_SERVER_HOST
+          value: "0.0.0.0:8200"
+        - name: MAX_EVENT_SIZE
+          value: "1mb"
+        - name: MONITORING_ENABLED
+          value: "true"
+        - name: LOG_LEVEL
+          value: "info"
+        - name: ELASTIC_USER
+          value: "elastic"
+        - name: ELASTIC_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: ELASTIC_PASSWORD
+        - name: APM_SECRET_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: APM_SECRET_TOKEN
+        volumeMounts:
+        - name: apm-config
+          mountPath: /usr/share/apm-server/apm-server.yml
+          subPath: apm-server.yml
+        - name: apm-data
+          mountPath: /usr/share/apm-server/data
+        - name: apm-logs
+          mountPath: /var/log/apm-server
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8200
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8200
+          initialDelaySeconds: 20
+          periodSeconds: 30
+          timeoutSeconds: 5
+      volumes:
+      - name: apm-data
+        emptyDir: {}
+      - name: apm-config
+        configMap:
+          name: apm-config
+          defaultMode: 420
+      - name: apm-logs
+        emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: apm-server-service
+  namespace: monitoring
+  labels:
+    app: apm-server
+    component: monitoring
+    part-of: membo-monitoring
+spec:
+  type: ClusterIP
+  ports:
+  - name: apm-server
+    port: 8200
+    targetPort: 8200
+    protocol: TCP
+  selector:
+    app: apm-server
