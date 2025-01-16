@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+  namespace: membo
+  labels:
+    app: membo
+    component: backend
+    tier: api
+    environment: production
+    managed-by: kubernetes
+    version: v1
+  annotations:
+    # Enable GCP Network Endpoint Groups for improved load balancing
+    cloud.google.com/neg: '{"ingress": true}'
+    # Associate with GCP backend configuration for advanced features
+    cloud.google.com/backend-config: '{"default": "membo-backend-config"}'
+    # Enable Prometheus metrics scraping
+    prometheus.io/scrape: 'true'
+    prometheus.io/port: '4000'
+    prometheus.io/path: '/metrics'
+spec:
+  # Use ClusterIP for internal access, ingress will handle external routing
+  type: ClusterIP
+  ports:
+    # Main API traffic port
+    - port: 4000
+      targetPort: 4000
+      protocol: TCP
+      name: http
+    # Prometheus metrics port
+    - port: 4001
+      targetPort: 4001
+      protocol: TCP
+      name: metrics
+  # Select backend pods based on labels
+  selector:
+    app: membo
+    component: backend
+  # Disable session affinity as API is stateless
+  sessionAffinity: None
+  # Only route traffic to ready pods
+  publishNotReadyAddresses: false
