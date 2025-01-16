@@ -1,0 +1,101 @@
+# Dependencies
+node_modules
+**/node_modules
+.pnp
+.pnp.js
+yarn.lock
+package-lock.json
+
+# Version Control
+.git
+.gitignore
+.gitattributes
+.github
+
+# Documentation
+*.md
+CHANGELOG
+LICENSE
+AUTHORS
+
+# Development & Testing
+src/*/tests
+src/*/coverage
+**/__tests__
+**/*.test.*
+**/*.spec.*
+jest.config.*
+coverage
+.nyc_output
+
+# Build & Compiled Files
+dist
+build
+out
+.next
+.nuxt
+.cache
+**/.cache
+
+# Environment & Configuration
+.env*
+.env.local
+.env.development
+.env.test
+.env.production
+infrastructure
+docker-compose*.yml
+*.config.js
+
+# IDE & Editor
+.idea
+.vscode
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Logs & Debug
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+debug.log
+
+# Security & Sensitive Data
+**/secrets
+**/*.key
+**/*.pem
+**/certs
+.npmrc
+.yarnrc
+
+# AI & Voice Processing
+**/models
+**/voice-data
+**/tmp
+**/temp
+**/.tmp
+**/uploads
+**/downloads
+**/*.wav
+**/*.mp3
+**/*.srt
+
+# Application Specific
+**/training-data
+**/embeddings
+**/*.model
+**/*.bin
+**/*.onnx
+**/*.pt
+**/*.h5
+**/*.pkl
+**/*.joblib
+
+# Miscellaneous
+.dockerignore
+Dockerfile*
+README.md
+CONTRIBUTING.md
+SECURITY.md
