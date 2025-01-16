@@ -1,0 +1,86 @@
+#!/usr/bin/env sh
+
+# Gradle wrapper script for membo.ai Android application
+# Version: 1.0.0
+# Purpose: Provides standardized Gradle build environment
+
+##############################################################################
+# Fail on error and undefined variables
+set -eu
+
+# Determine APP_HOME from script location
+APP_HOME="`pwd -P`"
+cd "`dirname \"$0\"`"
+
+# Default JVM options optimized for CI/CD environments
+DEFAULT_JVM_OPTS='"-Xmx4g" "-Xms512m" "-XX:MaxMetaspaceSize=512m" "-XX:+HeapDumpOnOutOfMemoryError"'
+
+# Error handling function
+die () {
+    echo "ERROR: $1" >&2
+    exit 1
+}
+
+# Initialize build environment
+init() {
+    # Validate Java installation
+    if [ -z "${JAVA_HOME:-}" ]; then
+        die "JAVA_HOME is not set and no 'java' command could be found"
+    fi
+
+    if [ ! -x "$JAVA_HOME/bin/java" ]; then
+        die "JAVA_HOME is set to an invalid directory: $JAVA_HOME"
+    fi
+
+    # Set maximum file descriptor limit
+    MAX_FD="maximum"
+    if [ "$(uname)" = "Darwin" ] ; then
+        MAX_FD="$(/usr/sbin/sysctl -n kern.maxfilesperproc)"
+    elif [ "$(expr "$(/usr/bin/uname)" : '.*BSD$')" -gt 0 ] ; then
+        MAX_FD="$((/usr/sbin/sysctl -n kern.maxfilesperproc))"
+    else
+        MAX_FD_LIMIT="$(ulimit -H -n)"
+        if [ $? -eq 0 ] ; then
+            if [ "$MAX_FD" = "maximum" -o "$MAX_FD" = "max" ] ; then
+                MAX_FD="$MAX_FD_LIMIT"
+            fi
+        fi
+    fi
+
+    # OS specific settings
+    case "$(uname)" in
+        Darwin*)
+            GRADLE_OPTS="$GRADLE_OPTS \"-Xdock:name=membo.ai\" \"-Xdock:icon=$APP_HOME/media/gradle.icns\""
+            ;;
+    esac
+
+    # Set classpath to include gradle-wrapper.jar
+    CLASSPATH="$APP_HOME/gradle/wrapper/gradle-wrapper.jar"
+
+    # Validate essential wrapper files
+    if [ ! -f "$CLASSPATH" ]; then
+        die "Gradle wrapper JAR file not found: $CLASSPATH"
+    fi
+    if [ ! -f "$APP_HOME/gradle/wrapper/gradle-wrapper.properties" ]; then
+        die "Gradle wrapper properties file not found"
+    fi
+}
+
+# Execute Gradle build
+execute() {
+    # Construct Java command with JVM options
+    eval set -- $DEFAULT_JVM_OPTS $JAVA_OPTS $GRADLE_OPTS
+
+    # Execute Gradle Wrapper
+    exec "$JAVA_HOME/bin/java" \
+        "$@" \
+        -classpath "$CLASSPATH" \
+        org.gradle.wrapper.GradleWrapperMain \
+        "$@"
+}
+
+# Initialize environment
+init
+
+# Execute Gradle with provided arguments
+execute "$@"
