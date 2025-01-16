@@ -1,0 +1,161 @@
+# Redis Sentinel StatefulSet configuration for membo.ai
+# Version: redis:7.0-alpine
+# Purpose: Provides high availability and automated failover for Redis cluster
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-sentinel
+  namespace: membo
+  labels:
+    app: membo
+    component: redis-sentinel
+spec:
+  ports:
+    - port: 26379
+      targetPort: sentinel
+      name: sentinel
+  selector:
+    app: membo
+    component: redis-sentinel
+  clusterIP: None
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis-sentinel
+  namespace: membo
+  labels:
+    app: membo
+    component: redis-sentinel
+spec:
+  serviceName: redis-sentinel
+  replicas: 3
+  selector:
+    matchLabels:
+      app: membo
+      component: redis-sentinel
+  template:
+    metadata:
+      labels:
+        app: membo
+        component: redis-sentinel
+    spec:
+      securityContext:
+        fsGroup: 1000
+        runAsUser: 1000
+        runAsNonRoot: true
+      containers:
+        - name: sentinel
+          image: redis:7.0-alpine
+          command:
+            - redis-sentinel
+            - /etc/redis/sentinel.conf
+          ports:
+            - containerPort: 26379
+              name: sentinel
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: REDIS_PASSWORD
+          volumeMounts:
+            - name: sentinel-config
+              mountPath: /etc/redis
+            - name: sentinel-data
+              mountPath: /tmp
+          livenessProbe:
+            exec:
+              command:
+                - redis-cli
+                - -p
+                - "26379"
+                - ping
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command:
+                - redis-cli
+                - -p
+                - "26379"
+                - ping
+            initialDelaySeconds: 15
+            periodSeconds: 5
+        - name: sentinel-exporter
+          image: oliver006/redis_exporter:latest
+          ports:
+            - containerPort: 9121
+              name: metrics
+          args:
+            - --redis.addr=redis://localhost:26379
+            - --namespace=membo_sentinel
+            - --web.listen-address=:9121
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "100m"
+              memory: "128Mi"
+      volumes:
+        - name: sentinel-config
+          configMap:
+            name: membo-config
+            items:
+              - key: sentinel.conf
+                path: sentinel.conf
+  volumeClaimTemplates:
+    - metadata:
+        name: sentinel-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: redis-sentinel-pdb
+  namespace: membo
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: membo
+      component: redis-sentinel
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: redis-sentinel-network-policy
+  namespace: membo
+spec:
+  podSelector:
+    matchLabels:
+      app: membo
+      component: redis-sentinel
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: membo
+        - podSelector:
+            matchLabels:
+              app: membo
+      ports:
+        - protocol: TCP
+          port: 26379
+        - protocol: TCP
+          port: 9121
