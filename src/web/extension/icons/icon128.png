@@ -1,0 +1,19 @@
+Image Properties:
+- Dimensions: 128x128 pixels
+- Format: PNG with transparency
+- Color Space: sRGB
+- Primary Color: #2563eb (Membo brand blue)
+- Background: Transparent
+- Maximum File Size: 10KB
+- Compression: Lossless PNG compression
+
+Design Elements:
+- Minimalist, modern design following membo.ai brand guidelines
+- High contrast for visibility at small sizes
+- Clean edges for crisp scaling
+- Recognizable when scaled down to 16x16 pixels
+- Optimized for high-DPI/retina displays
+
+The icon should be created in a professional graphics editing tool like Adobe Illustrator or Figma and exported with these exact specifications to ensure optimal display across all usage contexts including the Chrome Web Store, extension management page, and browser toolbar.
+
+Note: Since this is a binary image file, the actual image data cannot be represented in text format. The image should be created by a designer following these specifications.
