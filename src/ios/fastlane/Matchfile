@@ -1,0 +1,57 @@
+# fastlane 2.217.0
+
+# Import app identifier from Appfile for certificate matching
+require_relative 'Appfile'
+
+# Git repository URL for storing encrypted certificates and provisioning profiles
+git_url(ENV["MATCH_GIT_URL"])
+
+# Use git storage mode for certificates and profiles
+storage_mode("git")
+
+# Certificate type for development signing
+type("development")
+
+# App bundle identifiers that need code signing
+app_identifier([
+  "ai.membo.app" # Main app bundle ID
+])
+
+# Apple Developer Portal username from environment variables
+username(ENV["APPLE_ID"])
+
+# Apple Developer Team ID from environment variables
+team_id(ENV["APPLE_TEAM_ID"])
+
+# Git branch containing certificates
+git_branch("master")
+
+# Target platform for certificates
+platform("ios")
+
+# Enable readonly mode to prevent modifications during CI
+readonly(true)
+
+# Allow new device registration without manual intervention
+force_for_new_devices(true)
+
+# Prevent duplicate certificate names
+fail_on_name_taken(true)
+
+# Encryption password for certificate storage
+match_password(ENV["MATCH_PASSWORD"])
+
+# Certificate rotation and monitoring settings
+ENV["MATCH_KEYCHAIN_PASSWORD"] = ENV["MATCH_PASSWORD"]
+ENV["MATCH_READONLY"] = "true"
+ENV["MATCH_OUTPUT_PATH"] = "fastlane/certs"
+ENV["MATCH_VERBOSE"] = "true"
+
+# Security settings
+ENV["MATCH_SKIP_DOCS"] = "true"
+ENV["MATCH_SKIP_CONFIRMATION"] = "true"
+ENV["MATCH_SKIP_DOCS"] = "true"
+
+# Certificate expiration monitoring
+ENV["MATCH_CHECK_EXPIRATION"] = "true"
+ENV["MATCH_EXPIRATION_DAYS_THRESHOLD"] = "30"
