@@ -1,0 +1,23 @@
+This file should be a 120x120dp PNG image with the following characteristics:
+- Format: PNG with transparency support
+- Color Space: sRGB
+- Primary Color: #2563eb (Material Design blue)
+- Background: Transparent
+- Safe Zone: Inner 90% of width/height
+- Minimum Padding: Outer 10% of width/height
+- Dimensions: 120x120dp base size
+
+The image needs to be provided in multiple density variants:
+1. mdpi (1x): 120x120px
+2. hdpi (1.5x): 180x180px
+3. xhdpi (2x): 240x240px
+4. xxhdpi (3x): 360x360px
+5. xxxhdpi (4x): 480x480px
+
+The icon must follow Material Design guidelines and support:
+- Adaptive icon requirements for Android 8.0+
+- Round icon variants
+- Icon masking
+- System UI contexts (status bar, notifications, settings)
+- Dark mode compatibility
+- Legacy device support (pre-Oreo)
