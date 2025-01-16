@@ -1,0 +1,26 @@
+{
+  "short_name": "membo.ai",
+  "name": "membo.ai - Smart Knowledge Retention",
+  "description": "Personal knowledge retention system that transforms captured content into smart flashcards using AI and spaced repetition learning techniques",
+  "icons": [
+    {
+      "src": "logo192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "logo512.png", 
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#2563eb",
+  "background_color": "#ffffff",
+  "orientation": "portrait",
+  "scope": "/",
+  "prefer_related_applications": false
+}
