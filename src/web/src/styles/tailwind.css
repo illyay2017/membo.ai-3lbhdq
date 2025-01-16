@@ -1,0 +1,152 @@
+/* Import Tailwind base styles */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Base layer customization */
+@layer base {
+  :root {
+    /* Color system variables */
+    --color-primary: #2563eb;
+    --color-secondary: #64748b;
+    --color-accent: #0ea5e9;
+    --color-error: #ef4444;
+    --color-background: #ffffff;
+    --color-text: #1a1a1a;
+    --color-border: #e5e7eb;
+    --color-card-background: #ffffff;
+    --color-input-background: #ffffff;
+  }
+
+  /* Dark mode color variables */
+  .dark {
+    --color-background: #1a1a1a;
+    --color-text: #ffffff;
+    --color-border: #374151;
+    --color-card-background: #262626;
+    --color-input-background: #1f2937;
+  }
+
+  /* Base HTML styles */
+  html {
+    font-family: var(--font-primary, Inter);
+    color: var(--color-text);
+    background: var(--color-background);
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Typography scale */
+  h1 { font-size: 2.25rem; line-height: 2.5rem; font-weight: 700; }
+  h2 { font-size: 1.875rem; line-height: 2.25rem; font-weight: 700; }
+  h3 { font-size: 1.5rem; line-height: 2rem; font-weight: 600; }
+  h4 { font-size: 1.25rem; line-height: 1.75rem; font-weight: 600; }
+  h5 { font-size: 1.125rem; line-height: 1.75rem; font-weight: 600; }
+  h6 { font-size: 1rem; line-height: 1.5rem; font-weight: 600; }
+}
+
+/* Component layer styles */
+@layer components {
+  /* Button variants */
+  .btn {
+    @apply px-4 py-2 rounded-md font-medium transition-all duration-150 relative cursor-pointer outline-2 outline-offset-2 outline-transparent;
+  }
+
+  .btn-primary {
+    @apply bg-primary text-white hover:brightness-110 focus:ring-2 focus:ring-primary/50;
+  }
+
+  .btn-secondary {
+    @apply bg-secondary text-white hover:brightness-110 focus:ring-2 focus:ring-secondary/50;
+  }
+
+  /* Card component */
+  .card {
+    @apply bg-card-background rounded-lg shadow-sm border border-border transition-transform duration-150 hover:translate-y-[-2px];
+  }
+
+  /* Form inputs */
+  .input {
+    @apply w-full px-3 py-2 rounded-md border border-border bg-input-background text-text 
+           focus:ring-2 focus:ring-primary/50 focus:border-transparent
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  /* Navigation elements */
+  .nav-link {
+    @apply px-3 py-2 rounded-md text-text/80 hover:text-text hover:bg-primary/10 transition-colors;
+  }
+
+  /* Study card styles */
+  .study-card {
+    @apply card p-6 max-w-2xl mx-auto my-4;
+  }
+}
+
+/* Utility layer extensions */
+@layer utilities {
+  /* Text balance for better typography */
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Hide scrollbars while maintaining functionality */
+  .scrollbar-hide {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Focus ring utility */
+  .focus-ring {
+    @apply outline-none ring-2 ring-primary/50 ring-offset-2;
+  }
+
+  /* Responsive padding utilities */
+  .p-responsive {
+    @apply p-4 sm:p-6 lg:p-8;
+  }
+
+  /* Container width utilities */
+  .container-responsive {
+    @apply w-full max-w-[320px] sm:max-w-[768px] lg:max-w-[1024px] xl:max-w-[1280px] mx-auto px-4;
+  }
+}
+
+/* Media query breakpoints */
+@media (min-width: 320px) {
+  .mobile\: {
+    @apply block;
+  }
+}
+
+@media (min-width: 768px) {
+  .tablet\: {
+    @apply block;
+  }
+}
+
+@media (min-width: 1024px) {
+  .desktop\: {
+    @apply block;
+  }
+}
+
+@media (min-width: 1280px) {
+  .wide\: {
+    @apply block;
+  }
+}
+
+/* Accessibility enhancements */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
