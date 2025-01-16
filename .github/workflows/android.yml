@@ -1,0 +1,201 @@
+name: Android CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'src/android/**'
+      - '.github/workflows/android.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'src/android/**'
+
+env:
+  JAVA_VERSION: '17'
+  RUBY_VERSION: '3.2'
+  GRADLE_VERSION: '7.3.1'
+  GRADLE_BUILD_CACHE_KEY: "android-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}"
+  FASTLANE_SKIP_UPDATE_CHECK: 'true'
+  GRADLE_OPTS: '-Dorg.gradle.parallel=true -Dorg.gradle.caching=true -Dorg.gradle.daemon=false'
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v3
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ env.RUBY_VERSION }}
+          bundler-cache: true
+
+      - name: Cache Gradle dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ env.GRADLE_BUILD_CACHE_KEY }}
+          restore-keys: |
+            android-gradle-
+
+      - name: Install Fastlane
+        run: |
+          cd src/android
+          bundle install
+
+      - name: Run unit tests
+        run: |
+          cd src/android
+          bundle exec fastlane test
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: test-results
+          path: |
+            src/android/app/build/reports/tests/
+            src/android/app/build/reports/coverage/
+
+  build_beta:
+    name: Build & Deploy Beta
+    needs: test
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v3
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ env.RUBY_VERSION }}
+          bundler-cache: true
+
+      - name: Decode service account key
+        run: |
+          echo "${{ secrets.PLAY_STORE_CONFIG_JSON }}" | base64 -d > src/android/app/google-services.json
+
+      - name: Decode signing key
+        run: |
+          echo "${{ secrets.SIGNING_KEY_STORE_BASE64 }}" | base64 -d > src/android/app/release.keystore
+
+      - name: Install Fastlane
+        run: |
+          cd src/android
+          bundle install
+
+      - name: Build and deploy beta
+        run: |
+          cd src/android
+          bundle exec fastlane beta
+        env:
+          KEYSTORE_PATH: app/release.keystore
+          KEYSTORE_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
+          FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: beta-build
+          path: src/android/app/build/outputs/
+
+  deploy_production:
+    name: Deploy Production
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: production
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v3
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ env.RUBY_VERSION }}
+          bundler-cache: true
+
+      - name: Decode service account key
+        run: |
+          echo "${{ secrets.PLAY_STORE_CONFIG_JSON }}" | base64 -d > src/android/app/google-services.json
+
+      - name: Decode signing key
+        run: |
+          echo "${{ secrets.SIGNING_KEY_STORE_BASE64 }}" | base64 -d > src/android/app/release.keystore
+
+      - name: Install Fastlane
+        run: |
+          cd src/android
+          bundle install
+
+      - name: Deploy to production
+        run: |
+          cd src/android
+          bundle exec fastlane deploy
+        env:
+          KEYSTORE_PATH: app/release.keystore
+          KEYSTORE_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
+          FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Create GitHub Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          release_name: Release v${{ steps.version.outputs.version }}
+          draft: false
+          prerelease: false
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: production-build
+          path: |
+            src/android/app/build/outputs/bundle/release/
+            src/android/app/build/outputs/mapping/release/
