@@ -1,0 +1,9 @@
+Dimensions: 120x120 pixels
+Format: PNG
+Color Space: RGB
+Opacity: 100% opaque (no transparency)
+Usage: iPhone app icon (60x60@2x) and Spotlight search (40x40@3x)
+Safe Zone: Central 110x110 pixels for key design elements
+Background: Solid color matching app theme
+Corners: Square (iOS will automatically apply rounding)
+]
