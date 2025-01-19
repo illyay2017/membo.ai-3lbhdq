@@ -1,16 +1,23 @@
 import React, { useEffect, useCallback } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'; // v6.15.0
-import { Analytics } from '@mixpanel/browser'; // v2.45.0
+import { BrowserRouter, Routes, Route, Navigate, useLocation, createBrowserRouter, RouterProvider, Outlet } from 'react-router-dom'; // v6.15.0
+import mixpanel from "mixpanel-browser";
 import { ErrorBoundary } from 'react-error-boundary'; // v4.0.0
 
 import AppShell from './components/layout/AppShell';
 import { ROUTES } from './constants/routes';
 import { useAuthStore } from './store/authStore';
+import { wsService } from './services/websocketService';
+import LoginPage from './pages/Auth/LoginPage';
+import RegisterPage from './pages/Auth/RegisterPage';
+import ForgotPasswordPage from './pages/Auth/ForgotPasswordPage';
 
 // Session refresh configuration
 const SESSION_REFRESH_INTERVAL = 25 * 60 * 1000; // 25 minutes
 const MAX_RETRY_ATTEMPTS = 3;
 const RETRY_DELAY = 5000; // 5 seconds
+
+// Initialize mixpanel at the top of the file
+mixpanel.init("YOUR_PROJECT_TOKEN");
 
 /**
  * Protected route wrapper component with authentication and loading states
@@ -32,7 +39,7 @@ const ProtectedRoute: React.FC<{
   // Track protected route access
   useEffect(() => {
     if (isAuthenticated) {
-      Analytics.track('Protected Route Access', {
+      mixpanel.track('Protected Route Access', {
         path: location.pathname,
         timestamp: Date.now()
       });
@@ -75,119 +82,106 @@ const ErrorFallback: React.FC<{ error: Error }> = ({ error }) => (
  * and responsive layout structure
  */
 const App: React.FC = React.memo(() => {
-  const { isAuthenticated, refreshUserSession } = useAuthStore();
+  const { isAuthenticated } = useAuthStore();
   const location = useLocation();
 
-  // Initialize session refresh interval
-  useEffect(() => {
-    let refreshInterval: NodeJS.Timeout;
-    let retryCount = 0;
-
-    const refreshSession = async () => {
-      try {
-        await refreshUserSession();
-        retryCount = 0;
-      } catch (error) {
-        console.error('Session refresh failed:', error);
-        if (retryCount < MAX_RETRY_ATTEMPTS) {
-          retryCount++;
-          setTimeout(refreshSession, RETRY_DELAY * Math.pow(2, retryCount));
-        }
-      }
-    };
-
-    if (isAuthenticated) {
-      refreshInterval = setInterval(refreshSession, SESSION_REFRESH_INTERVAL);
-      refreshSession();
-    }
-
-    return () => {
-      if (refreshInterval) {
-        clearInterval(refreshInterval);
-      }
-    };
-  }, [isAuthenticated, refreshUserSession]);
-
-  // Track route changes
-  useEffect(() => {
-    Analytics.track('Page View', {
-      path: location.pathname,
-      timestamp: Date.now()
-    });
-  }, [location.pathname]);
+  // Check if current route is an auth route
+  const isAuthRoute = location.pathname.startsWith('/auth');
+  
+  // Redirect to login if not authenticated and not on an auth route
+  if (!isAuthenticated && !isAuthRoute && location.pathname !== '/') {
+    return <Navigate to={ROUTES.AUTH.LOGIN} replace />;
+  }
 
   return (
     <ErrorBoundary FallbackComponent={ErrorFallback}>
-      <AppShell>
-        <Routes>
-          {/* Public routes */}
-          <Route path={ROUTES.AUTH.LOGIN} element={<div>Login Page</div>} />
-          <Route path={ROUTES.AUTH.REGISTER} element={<div>Register Page</div>} />
-          <Route path={ROUTES.AUTH.FORGOT_PASSWORD} element={<div>Forgot Password Page</div>} />
-          <Route path={ROUTES.AUTH.RESET_PASSWORD} element={<div>Reset Password Page</div>} />
-
-          {/* Protected routes */}
-          <Route
-            path={ROUTES.CONTENT.INBOX}
-            element={
-              <ProtectedRoute>
-                <div>Inbox Page</div>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path={ROUTES.STUDY.HOME}
-            element={
-              <ProtectedRoute>
-                <div>Study Page</div>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path={ROUTES.CARDS.LIST}
-            element={
-              <ProtectedRoute>
-                <div>Cards Page</div>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path={ROUTES.DASHBOARD.HOME}
-            element={
-              <ProtectedRoute>
-                <div>Dashboard Page</div>
-              </ProtectedRoute>
-            }
-          />
-
-          {/* Default redirect */}
-          <Route
-            path="/"
-            element={
-              <Navigate
-                to={isAuthenticated ? ROUTES.DASHBOARD.HOME : ROUTES.AUTH.LOGIN}
-                replace
-              />
-            }
-          />
-
-          {/* 404 fallback */}
-          <Route path="*" element={<div>404 Not Found</div>} />
-        </Routes>
-      </AppShell>
+      {isAuthRoute ? (
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <div className="w-full max-w-md p-8">
+            <Outlet />
+          </div>
+        </div>
+      ) : (
+        <AppShell>
+          <Outlet />
+        </AppShell>
+      )}
     </ErrorBoundary>
   );
 });
 
 App.displayName = 'App';
 
+// Simple index route component
+const IndexRoute = () => <Navigate to={ROUTES.AUTH.LOGIN} replace />;
+
+// Create router with routes
+const router = createBrowserRouter([
+  {
+    path: '/',
+    element: <App />,
+    errorElement: <ErrorFallback error={new Error('Page not found')} />,
+    children: [
+      {
+        index: true,
+        element: <IndexRoute />
+      },
+      // Auth routes
+      {
+        path: ROUTES.AUTH.LOGIN,
+        element: <LoginPage />
+      },
+      {
+        path: ROUTES.AUTH.REGISTER,
+        element: <RegisterPage />
+      },
+      {
+        path: ROUTES.AUTH.FORGOT_PASSWORD,
+        element: <ForgotPasswordPage />
+      },
+      // Protected routes
+      {
+        path: ROUTES.CONTENT.INBOX,
+        element: (
+          <ProtectedRoute>
+            <div>Inbox Page</div>
+          </ProtectedRoute>
+        )
+      },
+      {
+        path: ROUTES.STUDY.HOME,
+        element: (
+          <ProtectedRoute>
+            <div>Study Page</div>
+          </ProtectedRoute>
+        )
+      },
+      {
+        path: ROUTES.CARDS.LIST,
+        element: (
+          <ProtectedRoute>
+            <div>Cards Page</div>
+          </ProtectedRoute>
+        )
+      },
+      {
+        path: ROUTES.DASHBOARD.HOME,
+        element: (
+          <ProtectedRoute>
+            <div>Dashboard Page</div>
+          </ProtectedRoute>
+        )
+      }
+    ]
+  }
+]);
+
 /**
  * Root application wrapper with router provider
  */
-const AppWrapper: React.FC = () => (
-  <BrowserRouter>
-    <App />
-  </BrowserRouter>
-);
+const AppWrapper: React.FC = () => {
+  console.log('AppWrapper mounting');
+  return <RouterProvider router={router} />;
+};
 
 export default AppWrapper;

@@ -1,0 +1,32 @@
+services:
+  web:
+    build:
+      context: ./src/web
+      dockerfile: Dockerfile
+      target: development
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./src/web:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - VITE_API_URL=http://localhost:4000
+      - VITE_WS_URL=ws://localhost:4000
+      - VITE_ENABLE_VOICE=true
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - membo
+    # Later you can add dependencies like:
+    # depends_on:
+    #   api:
+    #     condition: service_healthy
+
+networks:
+  membo:
+    name: membo-network

@@ -138,7 +138,13 @@ export const cssVariables = {
     '--error-foreground': '#ffffff',
     '--success': colors.semantic.success,
     '--warning': colors.semantic.warning,
-    '--info': colors.semantic.info
+    '--info': colors.semantic.info,
+    '--card-background': '0 0% 100%',
+    '--card-foreground': '222.2 84% 4.9%',
+    '--border': '214.3 31.8% 91.4%',
+    '--input-background': '0 0% 100%',
+    '--input-foreground': '222.2 84% 4.9%',
+    '--text': '222.2 84% 4.9%'
   },
   dark: {
     '--background': colors.background.dark,
@@ -153,6 +159,12 @@ export const cssVariables = {
     '--error-foreground': '#ffffff',
     '--success': colors.semantic.success,
     '--warning': colors.semantic.warning,
-    '--info': colors.semantic.info
+    '--info': colors.semantic.info,
+    '--card-background': '222.2 84% 4.9%',
+    '--card-foreground': '210 40% 98%',
+    '--border': '217.2 32.6% 17.5%',
+    '--input-background': '217.2 32.6% 17.5%',
+    '--input-foreground': '210 40% 98%',
+    '--text': '210 40% 98%'
   }
 } as const;

@@ -23,16 +23,16 @@ export enum VoiceRecognitionState {
  */
 export interface VoiceRecognitionConfig {
     /** Primary language for speech recognition (e.g., 'en-US') */
-    language: string;
+    language?: string;
     
     /** Whether to continuously recognize speech */
-    continuous: boolean;
+    continuous?: boolean;
     
     /** Whether to return interim results while processing */
-    interimResults: boolean;
+    interimResults?: boolean;
     
     /** Maximum number of alternative transcriptions to return */
-    maxAlternatives: number;
+    maxAlternatives?: number;
     
     /** Optional timeout in milliseconds for recognition */
     timeout?: number;
@@ -48,6 +48,9 @@ export interface VoiceRecognitionConfig {
     
     /** Optional interval between retries in milliseconds */
     retryInterval?: number;
+    
+    /** Optional confidence threshold for recognition */
+    confidenceThreshold?: number;
 }
 
 /**

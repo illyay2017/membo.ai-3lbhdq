@@ -6,7 +6,6 @@ export default defineConfig({
   // React plugin configuration with Fast Refresh and automatic JSX runtime
   plugins: [
     react({
-      fastRefresh: true,
       jsxRuntime: 'automatic'
     })
   ],
@@ -69,6 +68,24 @@ export default defineConfig({
     hmr: {
       // Show error overlay during development
       overlay: true
+    },
+    headers: {
+      // Security headers
+      'Content-Security-Policy': [
+        "default-src 'self'",
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+        "font-src 'self' https://fonts.gstatic.com",
+        "img-src 'self' data: https:",
+        "frame-ancestors 'none'",
+        "object-src 'none'",
+        "base-uri 'self'",
+        "connect-src 'self' http://localhost:* ws://localhost:* wss://localhost:* https://fonts.googleapis.com https://fonts.gstatic.com https://api.membo.ai https://storage.googleapis.com"
+      ].join('; '),
+      'X-Frame-Options': 'DENY',
+      'X-Content-Type-Options': 'nosniff',
+      'Referrer-Policy': 'strict-origin-when-cross-origin',
+      'Permissions-Policy': 'camera=(), microphone=(self), geolocation=()'
     }
   },
 

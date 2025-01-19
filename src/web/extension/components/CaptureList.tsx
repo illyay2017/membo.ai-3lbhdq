@@ -6,6 +6,7 @@ import { Skeleton } from '@shadcn/ui';
 import { Content, ContentStatus } from '../../src/types/content';
 import { getFromExtensionStorage, clearSyncedContent } from '../utils/storage';
 import { getSyncStatus } from '../utils/sync';
+import { Card } from '../../src/components/ui/card';
 import Button from '../../src/components/ui/button';
 import { typography, colors } from '../../src/constants/theme';
 
@@ -102,7 +103,7 @@ const CaptureList: React.FC<CaptureListProps> = ({
     return (
       <div className={classNames('space-y-4 p-4', className)}>
         {Array.from({ length: 3 }).map((_, i) => (
-          <Skeleton key={i} className="h-24 w-full rounded-md" />
+          <div key={i} className="h-24 w-full rounded-md bg-gray-200 animate-pulse"></div>
         ))}
       </div>
     );

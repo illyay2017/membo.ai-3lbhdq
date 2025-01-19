@@ -10,6 +10,7 @@ import { devtools } from 'zustand/middleware'; // v4.4.1
 import { login, register, logout, refreshToken } from '../services/authService';
 import { LoginCredentials, RegisterCredentials, UserData } from '../types/auth';
 import { useUIStore } from './uiStore';
+import { UserRole } from '../types/user';
 
 /**
  * Interface defining the authentication store state and actions
@@ -30,16 +31,29 @@ interface IAuthStore {
   refreshUserSession: () => Promise<void>;
 }
 
-/**
- * Constants for authentication configuration
- */
+// Development mock user
+const DEV_USER: UserData = {
+  id: 'dev-user-id',
+  email: 'dev@membo.ai',
+  firstName: 'Dev',
+  lastName: 'User',
+  role: UserRole.FREE_USER,
+  isEmailVerified: true,
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString()
+} as const;
+
+// Initial state with development mode check
 const INITIAL_STATE = {
-  user: null,
-  isAuthenticated: false,
+  user: process.env.NODE_ENV === 'development' ? (() => {
+    console.log('Running in development mode');
+    return DEV_USER;
+  })() : null,
+  isAuthenticated: process.env.NODE_ENV === 'development',
   isLoading: false,
   error: null,
-  lastTokenRefresh: null,
-  sessionExpiresAt: null,
+  lastTokenRefresh: process.env.NODE_ENV === 'development' ? Date.now() : null,
+  sessionExpiresAt: process.env.NODE_ENV === 'development' ? Date.now() + (24 * 60 * 60 * 1000) : null,
 } as const;
 
 const TOKEN_REFRESH_THRESHOLD = 300; // 5 minutes before expiry in seconds
@@ -81,11 +95,12 @@ export const useAuthStore = create<IAuthStore>()(
             message: 'Successfully logged in'
           });
         } catch (error) {
-          set({ error: error instanceof Error ? error.message : 'Login failed' });
-          useUIStore.getState().showToast({
-            type: 'error',
-            message: 'Login failed. Please try again.'
+          set({
+            ...INITIAL_STATE,
+            error: error instanceof Error ? error.message : 'Login failed',
+            isLoading: false
           });
+          throw error;
         } finally {
           set({ isLoading: false });
         }

@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react'
 import { Link, useLocation } from 'react-router-dom' // ^6.0.0
-import { cn } from 'classnames' // ^2.3.2
+import { cn } from '../../lib/utils' // ^2.3.2
 import { 
   InboxIcon, 
   BookOpenIcon, 
@@ -9,7 +9,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon 
 } from 'lucide-react' // ^0.284.0
-import { Tooltip } from '@radix-ui/react-tooltip' // ^1.0.0
+import * as Tooltip from '@radix-ui/react-tooltip'
 
 import { ROUTES } from '../../constants/routes'
 import Button from '../ui/button'

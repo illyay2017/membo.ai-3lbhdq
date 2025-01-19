@@ -2,11 +2,11 @@ import React, { useCallback, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import ReCAPTCHA from 'react-google-recaptcha';
-import { Button } from '../../components/ui/button';
+import Button from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { useAuth } from '../../hooks/useAuth';
 import { validateRegistrationData } from '../../utils/validation';
-import { UserRole } from '../../../backend/src/constants/userRoles';
+import { UserRole } from '../../types/user';
 import { colors, typography } from '../../constants/theme';
 
 // Registration form data interface
@@ -39,6 +39,7 @@ const RegisterPage: React.FC = () => {
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors },
     setError,
     clearErrors
@@ -119,6 +120,7 @@ const RegisterPage: React.FC = () => {
               id="firstName"
               label="First Name"
               error={errors.firstName?.message}
+              value={watch('firstName')}
               {...register('firstName', {
                 required: 'First name is required',
                 minLength: { value: 2, message: 'First name is too short' },

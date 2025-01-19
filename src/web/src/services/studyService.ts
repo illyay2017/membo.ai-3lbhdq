@@ -222,10 +222,10 @@ export class StudyService {
 
         // Apply FSRS algorithm calculations
         const stabilityMultiplier = FSRS_CONFIG.stabilityMatrix[
-            CONFIDENCE_LEVELS[confidence].toLowerCase()
+            CONFIDENCE_LEVELS[confidence].toLowerCase() as keyof typeof FSRS_CONFIG.stabilityMatrix
         ];
         const difficultyMultiplier = FSRS_CONFIG.difficultyMatrix[
-            CONFIDENCE_LEVELS[confidence].toLowerCase()
+            CONFIDENCE_LEVELS[confidence].toLowerCase() as keyof typeof FSRS_CONFIG.difficultyMatrix
         ];
 
         return {

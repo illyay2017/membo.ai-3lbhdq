@@ -1,11 +1,12 @@
 import React, { useMemo, useCallback } from 'react';
-import { classNames } from 'classnames'; // v2.3.2
-import { Button, buttonVariants } from '../ui/button';
+import classNames from 'classnames';
+import Button, { buttonVariants } from '../ui/button';
 import StudyStats from '../study/StudyStats';
 import ProgressBar from '../study/ProgressBar';
 import { useStudySession } from '../../hooks/useStudySession';
 import { VoiceRecognitionState } from '../../types/voice';
 import { colors } from '../../constants/theme';
+import { StudySession } from '../../types/study';
 
 // Interface for component props
 interface ContextPanelProps {

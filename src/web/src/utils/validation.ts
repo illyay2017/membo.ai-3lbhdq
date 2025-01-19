@@ -119,6 +119,14 @@ export const validateContentInput = (contentData: ContentCreateInput): boolean =
 };
 
 /**
+ * Email validation helper function
+ */
+export const validateEmail = (email: string): boolean => {
+  const emailRegex = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
+  return emailRegex.test(email);
+};
+
+/**
  * Comprehensive input sanitization for XSS prevention
  * @param input - String to sanitize
  * @returns Sanitized string with all security measures applied

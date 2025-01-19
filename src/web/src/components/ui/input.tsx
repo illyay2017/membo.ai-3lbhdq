@@ -6,7 +6,7 @@
 
 import React, { useCallback, useRef } from 'react';
 import { sanitizeInput } from '../../utils/validation'; // v1.0.0
-import { cn } from 'clsx'; // v2.0.0
+import { cn } from '../../lib/utils'; // Update this import
 
 // Input types supported by the component
 type InputType = 'text' | 'email' | 'password' | 'search' | 'tel' | 'url' | 'number';

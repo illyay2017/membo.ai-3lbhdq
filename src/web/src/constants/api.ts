@@ -8,13 +8,13 @@
  * Current API version prefix for all endpoints
  * Used to support versioning and backward compatibility
  */
-export const API_VERSION = '/api/v1';
+export const API_VERSION = import.meta.env.VITE_API_VERSION;
 
 /**
  * Base URL for API requests
  * Falls back to localhost in development environment
  */
-export const API_BASE_URL = process.env.VITE_API_BASE_URL || 'http://localhost:4000';
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
 /**
  * Comprehensive collection of API endpoints organized by feature domain

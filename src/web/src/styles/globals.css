@@ -1,9 +1,6 @@
 /* Import font families - v5.x */
-@import '@fontsource/inter/variable.css';
-@import '@fontsource/sf-pro-display/400.css';
-@import '@fontsource/sf-pro-display/600.css';
-@import '@fontsource/sf-pro-display/700.css';
-@import '@fontsource/jetbrains-mono/variable.css';
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/jetbrains-mono';
 
 /* Import Tailwind CSS */
 @import './tailwind.css';
@@ -12,7 +9,7 @@
 :root {
   /* Typography */
   --font-primary: 'Inter', system-ui, -apple-system, sans-serif;
-  --font-secondary: 'SF Pro Display', system-ui, -apple-system, sans-serif;
+  --font-secondary: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   --font-code: 'JetBrains Mono', monospace;
 
   /* Colors */
