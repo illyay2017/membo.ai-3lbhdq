@@ -17,7 +17,10 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=4000
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/membo
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - DATABASE_URL=${DATABASE_URL}
       - REDIS_URL=redis://cache:6379
       - DEBUG=membo:*
     depends_on:
