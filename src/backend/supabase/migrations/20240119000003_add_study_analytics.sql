@@ -210,15 +210,15 @@ ALTER TABLE engagement_metrics ENABLE ROW LEVEL SECURITY;
 -- Create security policies
 CREATE POLICY study_metrics_access ON study_metrics 
     FOR ALL TO authenticated 
-    USING (user_id = current_user_id());
+    USING (user_id = auth.uid());
 
 CREATE POLICY performance_analytics_access ON performance_analytics 
     FOR ALL TO authenticated 
-    USING (user_id = current_user_id());
+    USING (user_id = auth.uid());
 
 CREATE POLICY engagement_metrics_access ON engagement_metrics 
     FOR ALL TO authenticated 
-    USING (user_id = current_user_id());
+    USING (user_id = auth.uid());
 
 -- Rollback function
 CREATE OR REPLACE FUNCTION rollback_study_analytics()

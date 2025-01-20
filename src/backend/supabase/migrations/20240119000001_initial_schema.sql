@@ -26,15 +26,22 @@ CREATE TYPE study_mode AS ENUM (
 
 -- Core tables
 CREATE TABLE users (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    email TEXT NOT NULL UNIQUE,
-    encrypted_password TEXT NOT NULL,
+    id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     role user_role NOT NULL DEFAULT 'FREE_USER',
-    preferences JSONB NOT NULL DEFAULT '{}',
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    last_login_at TIMESTAMP WITH TIME ZONE,
-    CONSTRAINT email_format CHECK (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$')
+    preferences jsonb DEFAULT '{}'::jsonb,
+    created_at timestamptz DEFAULT now(),
+    CONSTRAINT valid_preferences CHECK (
+        jsonb_typeof(preferences) = 'object' AND
+        (preferences->>'studyMode')::text IN ('STANDARD', 'VOICE', 'QUIZ') AND
+        jsonb_typeof(preferences->'voiceEnabled') = 'boolean' AND
+        (preferences->>'dailyGoal')::integer > 0 AND
+        jsonb_typeof(preferences->'notifications') = 'object' AND
+        jsonb_typeof(preferences->'notifications'->'email') = 'boolean' AND
+        jsonb_typeof(preferences->'notifications'->'push') = 'boolean' AND
+        jsonb_typeof(preferences->'notifications'->'studyReminders') = 'boolean' AND
+        (preferences->>'theme')::text IN ('light', 'dark', 'system') AND
+        (preferences->>'language')::text ~ '^[a-z]{2}$'
+    )
 );
 
 CREATE TABLE content (
@@ -87,7 +94,6 @@ CREATE TABLE study_sessions (
 CREATE INDEX idx_content_user_status ON content(user_id, status);
 CREATE INDEX idx_cards_next_review ON cards(user_id, next_review);
 CREATE INDEX idx_study_sessions_user ON study_sessions(user_id, start_time);
-CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_cards_tags ON cards USING gin(tags);
 CREATE INDEX idx_content_full_text ON content USING gin(to_tsvector('english', content));
 
@@ -143,3 +149,62 @@ CREATE TRIGGER update_session_duration
     BEFORE UPDATE ON study_sessions
     FOR EACH ROW
     EXECUTE FUNCTION calculate_session_duration();
+
+-- Create trigger to automatically create user record
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+DECLARE
+    user_preferences jsonb;
+BEGIN
+    -- Extract preferences from raw_app_meta_data
+    user_preferences := CASE 
+        WHEN NEW.raw_app_meta_data->'preferences' IS NOT NULL THEN
+            NEW.raw_app_meta_data->'preferences'
+        ELSE 
+            jsonb_build_object(
+                'studyMode', 'STANDARD',
+                'voiceEnabled', false,
+                'dailyGoal', 20,
+                'theme', 'light',
+                'language', 'en',
+                'notifications', jsonb_build_object(
+                    'email', true,
+                    'push', true,
+                    'studyReminders', true
+                )
+            )
+    END;
+
+    -- Ensure all required fields exist with correct structure
+    user_preferences := jsonb_build_object(
+        'studyMode', COALESCE(user_preferences->>'studyMode', 'STANDARD'),
+        'voiceEnabled', COALESCE((user_preferences->>'voiceEnabled')::boolean, false),
+        'dailyGoal', COALESCE((user_preferences->>'dailyGoal')::integer, 20),
+        'theme', COALESCE(user_preferences->>'theme', 'light'),
+        'language', COALESCE(user_preferences->>'language', 'en'),
+        'notifications', COALESCE(
+            user_preferences->'notifications',
+            jsonb_build_object(
+                'email', COALESCE((user_preferences->>'emailNotifications')::boolean, true),
+                'push', true,
+                'studyReminders', true
+            )
+        )
+    );
+
+    -- Insert the user record
+    INSERT INTO public.users (id, role, preferences)
+    VALUES (
+        NEW.id,
+        COALESCE((NEW.raw_app_meta_data->>'role')::user_role, 'FREE_USER'),
+        user_preferences
+    );
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Trigger to create user record when auth.users record is created
+CREATE TRIGGER on_auth_user_created
+    AFTER INSERT ON auth.users
+    FOR EACH ROW
+    EXECUTE FUNCTION public.handle_new_user();
