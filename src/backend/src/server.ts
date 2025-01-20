@@ -4,16 +4,19 @@
  * @version 1.0.0
  */
 
-import http from 'http';
-import cluster from 'cluster';
-import { cpus } from 'os';
-import app from './app';
-import { logger } from './config/logger';
-import { WebSocketManager } from './websocket/WebSocketManager';
-import { StudySessionHandler } from './websocket/handlers/studySessionHandler';
-import { VoiceHandler } from './websocket/handlers/voiceHandler';
-import { StudySessionManager } from './core/study/studySessionManager';
-import { VoiceService } from './services/VoiceService';
+import http from 'node:http';
+import cluster from 'node:cluster';
+import { cpus } from 'node:os';
+import app from './app.js';
+import { logger } from './config/logger.js';
+import { WebSocketManager } from './websocket/WebSocketManager.js';
+import { StudySessionHandler } from './websocket/handlers/studySessionHandler.js';
+import { VoiceHandler } from './websocket/handlers/voiceHandler.js';
+import { StudySessionManager } from './core/study/studySessionManager.js';
+import { VoiceService } from './services/VoiceService.js';
+import { FSRSAlgorithm } from './core/study/FSRSAlgorithm.js';
+import { CardScheduler } from './core/study/cardScheduler.js';
+import { Card } from './models/Card.js';
 
 // Environment variables with defaults
 const PORT = process.env.PORT || 4000;
@@ -36,7 +39,12 @@ const startServer = async (): Promise<http.Server> => {
 
     // Initialize WebSocket handlers
     const studySessionManager = new StudySessionManager(
-        logger.child({ service: 'StudySessionManager' })
+        new FSRSAlgorithm(),
+        new CardScheduler(
+            new FSRSAlgorithm(),
+            new Card()
+        ),
+        null  // Metrics collector will be injected
     );
 
     const voiceService = new VoiceService(

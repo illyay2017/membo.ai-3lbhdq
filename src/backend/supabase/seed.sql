@@ -56,7 +56,7 @@ BEGIN
         jsonb_build_object(
             'role', 'PRO_USER',
             'preferences', jsonb_build_object(
-                'studyMode', 'ADVANCED',
+                'studyMode', 'VOICE',
                 'voiceEnabled', true,
                 'dailyGoal', 50,
                 'theme', 'dark',
@@ -83,7 +83,7 @@ BEGIN
         jsonb_build_object(
             'role', 'POWER_USER',
             'preferences', jsonb_build_object(
-                'studyMode', 'EXPERT',
+                'studyMode', 'QUIZ',
                 'voiceEnabled', true,
                 'dailyGoal', 100,
                 'theme', 'system',

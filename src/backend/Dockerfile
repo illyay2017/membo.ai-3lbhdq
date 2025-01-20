@@ -22,41 +22,31 @@ RUN npm run build
 # Prune development dependencies
 RUN npm prune --production
 
-# Production stage
-FROM node:20-alpine
-
-# Set working directory
+# Development stage
+FROM node:20-alpine AS development
 WORKDIR /app
-
-# Create non-root user
-RUN addgroup -g 1001 -S nodejs \
-    && adduser -S nodejs -G nodejs -u 1001
-
-# Install runtime dependencies
+COPY package*.json ./
+RUN npm install -g tsx ts-node typescript nodemon
+RUN npm install
+COPY . .
+ENV NODE_ENV=development
+ENV TS_NODE_PROJECT=./tsconfig.json
+ENV TS_NODE_FILES=true
+ENV PATH="/app/node_modules/.bin:${PATH}"
+EXPOSE 4000 9229
 RUN apk add --no-cache curl
+CMD ["npm", "run", "dev"]
 
-# Copy built artifacts from builder stage
-COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
-COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
-COPY --from=builder --chown=nodejs:nodejs /app/package.json ./
-
-# Create and set permissions for temp directory
-RUN mkdir -p /app/tmp \
-    && chown -R nodejs:nodejs /app/tmp
-
-# Set environment variables
+# Production stage
+FROM node:20-alpine AS production
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
+COPY --from=builder /app/dist ./dist
 ENV NODE_ENV=production
-ENV PORT=4000
-
-# Expose API port
+ENV NODE_OPTIONS="--experimental-specifier-resolution=node"
 EXPOSE 4000
-
-# Configure health check
+USER node
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:4000/health || exit 1
-
-# Set user
-USER nodejs
-
-# Set entry point
 CMD ["node", "dist/server.js"]

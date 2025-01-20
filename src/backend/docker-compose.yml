@@ -1,19 +1,14 @@
-version: '3.8'
-
 services:
   api:
     build:
       context: .
       dockerfile: Dockerfile
       target: development
-      args:
-        NODE_ENV: development
     ports:
       - "4000:4000"  # API port
       - "9229:9229"  # Debug port
     volumes:
       - .:/app:delegated
-      - node_modules:/app/node_modules
     environment:
       - NODE_ENV=development
       - PORT=4000
@@ -89,13 +84,17 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus_data:/prometheus
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=15d"
+      - "--storage.tsdb.retention.size=512MB"
       - "--storage.tsdb.path=/prometheus"
       - "--web.console.libraries=/usr/share/prometheus/console_libraries"
       - "--web.console.templates=/usr/share/prometheus/consoles"
+    configs:
+      - source: prometheus_config
+        target: /etc/prometheus/prometheus.yml
     networks:
       - backend
 
@@ -133,3 +132,18 @@ networks:
     labels:
       com.membo.environment: development
       com.membo.network: backend
+
+configs:
+  prometheus_config:
+    content: |
+      global:
+        scrape_interval: 15s
+        evaluation_interval: 15s
+      scrape_configs:
+        - job_name: 'membo-api'
+          static_configs:
+            - targets: ['api:4000']
+          metrics_path: '/metrics'
+        - job_name: 'prometheus'
+          static_configs:
+            - targets: ['localhost:9090']
