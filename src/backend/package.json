@@ -52,7 +52,12 @@
     "ws": "8.x",
     "xss": "^1.0.14",
     "yup": "^1.3.2",
-    "zod": "^3.22.4"
+    "zod": "^3.22.4",
+    "cache-manager": "^5.2.0",
+    "@types/cache-manager": "^4.0.2",
+    "keyv": "^4.5.4",
+    "@keyv/redis": "^2.8.4",
+    "@types/keyv": "^3.1.4"
   },
   "devDependencies": {
     "@faker-js/faker": "8.x",

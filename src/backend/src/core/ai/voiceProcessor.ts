@@ -11,7 +11,7 @@ import { voiceInputSchema } from '../../api/validators/voice.validator';
 import { RateLimiter } from 'limiter'; // ^2.0.0
 import { Redis } from 'redis'; // ^4.6.0
 import winston from 'winston'; // ^3.10.0
-import { Whisper } from '@openai/whisper'; // ^1.0.0
+import OpenAI from 'openai'; // ^1.0.0
 import crypto from 'crypto';
 
 // Global configuration for voice processing
@@ -63,7 +63,7 @@ interface ValidationResult {
 @injectable()
 @singleton()
 export class VoiceProcessor {
-  private readonly whisper: Whisper;
+  private readonly openAi: OpenAI;
   private readonly rateLimiter: RateLimiter;
   private readonly audioFingerprinter: crypto.Hash;
 
@@ -73,7 +73,7 @@ export class VoiceProcessor {
     private readonly cache: Redis,
     private readonly metrics: any
   ) {
-    this.whisper = new Whisper({
+    this.openAi = new OpenAI({
       model: VOICE_PROCESSING_CONFIG.whisperModel,
       sampleRate: VOICE_PROCESSING_CONFIG.sampleRate
     });

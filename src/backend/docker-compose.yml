@@ -127,7 +127,6 @@ networks:
   backend:
     driver: bridge
     enable_ipv6: true
-    internal: true
     attachable: true
     labels:
       com.membo.environment: development

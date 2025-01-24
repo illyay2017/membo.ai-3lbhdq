@@ -13,7 +13,6 @@ import { UserRole } from '../../constants/userRoles';
 import rateLimit from 'express-rate-limit'; // ^6.9.0
 import compression from 'compression'; // ^1.7.4
 import helmet from 'helmet'; // ^7.0.0
-import cacheControl from 'express-cache-controller'; // ^1.1.0
 
 // Rate limiting configurations
 const VOICE_PROCESS_LIMIT = {
@@ -107,13 +106,10 @@ export const createVoiceRouter = (voiceController: VoiceController): Router => {
     // Voice feature availability check with caching
     router.get('/availability',
         authenticate,
-        cacheControl({
-            maxAge: 300, // 5 minutes cache
-            private: true,
-            noStore: false,
-            noCache: false,
-            mustRevalidate: true
-        }),
+        (req, res, next) => {
+            res.set('Cache-Control', 'private, max-age=300, must-revalidate');
+            next();
+        },
         async (req, res, next) => {
             try {
                 await voiceController.checkVoiceAvailability(req, res);

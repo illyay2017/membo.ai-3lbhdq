@@ -5,40 +5,37 @@
  */
 
 import { Request, Response } from 'express';
-import winston from 'winston'; // ^3.10.0
-import rateLimit from 'express-rate-limit'; // ^6.9.0
-import { caching } from 'cache-manager'; // ^5.2.0
+import winston from 'winston';
+import rateLimit from 'express-rate-limit';
+import { caching } from 'cache-manager';
+import { Keyv } from 'keyv';
+import KeyvRedis from '@keyv/redis';
 import { VoiceService } from '../../services/VoiceService';
 import { voiceSettingsSchema, voiceInputSchema } from '../validators/voice.validator';
 
-// Global constants
+// Constants
 const SUPPORTED_LANGUAGES = ['en', 'es', 'fr', 'de', 'it', 'pt', 'ja', 'ko', 'zh'] as const;
-const CACHE_TTL = 300; // 5 minutes in seconds
-const RATE_LIMIT_WINDOW = 15 * 60 * 1000; // 15 minutes in milliseconds
-const RATE_LIMIT_MAX = 100; // Maximum requests per window
+const CACHE_TTL = 300; // 5 minutes
+const RATE_LIMIT = {
+    WINDOW_MS: 15 * 60 * 1000, // 15 minutes
+    MAX_REQUESTS: 100
+} as const;
 
 /**
  * Controller class handling voice-related HTTP endpoints with performance optimization
  */
 export class VoiceController {
-    private readonly cache: ReturnType<typeof caching>;
+    private cache!: Awaited<ReturnType<typeof caching>>;
     private readonly rateLimiter: ReturnType<typeof rateLimit>;
 
     constructor(
         private readonly voiceService: VoiceService,
         private readonly logger: winston.Logger
     ) {
-        // Initialize cache manager
-        this.cache = caching({
-            ttl: CACHE_TTL,
-            max: 1000,
-            store: 'memory'
-        });
-
-        // Configure rate limiter
+        this.initializeCache();
         this.rateLimiter = rateLimit({
-            windowMs: RATE_LIMIT_WINDOW,
-            max: RATE_LIMIT_MAX,
+            windowMs: RATE_LIMIT.WINDOW_MS,
+            max: RATE_LIMIT.MAX_REQUESTS,
             message: 'Too many voice processing requests',
             standardHeaders: true,
             legacyHeaders: false
@@ -47,26 +44,32 @@ export class VoiceController {
         this.logger = logger.child({ controller: 'VoiceController' });
     }
 
+    private async initializeCache() {
+        // Use Redis store with connection to docker service named 'cache'
+        const keyv = new Keyv({
+            store: new KeyvRedis('redis://cache:6379')
+        });
+
+        this.cache = await caching(keyv, {
+            ttl: CACHE_TTL * 1000
+        });
+    }
+
     /**
      * Processes voice input for study session with performance monitoring
      */
-    public processVoiceInput = async (req: Request, res: Response): Promise<void> => {
+    public processVoiceInput = async (req: Request, res: Response): Promise<Response> => {
         const startTime = Date.now();
 
         try {
-            // Validate request body
             const validatedInput = await voiceInputSchema.validateAsync(req.body);
-
-            // Check cache for similar recent requests
             const cacheKey = `voice:${req.user.id}:${validatedInput.studySessionId}`;
+            
             const cachedResult = await this.cache.get(cacheKey);
-
             if (cachedResult) {
-                res.json(cachedResult);
-                return;
+                return res.json(cachedResult);
             }
 
-            // Process voice input
             const result = await this.voiceService.processStudyAnswer(
                 validatedInput.studySessionId,
                 Buffer.from(validatedInput.audioData, 'base64'),
@@ -74,10 +77,8 @@ export class VoiceController {
                 validatedInput.language
             );
 
-            // Cache successful result
             await this.cache.set(cacheKey, result);
 
-            // Log performance metrics
             this.logger.info('Voice input processed', {
                 userId: req.user.id,
                 sessionId: validatedInput.studySessionId,
@@ -85,8 +86,7 @@ export class VoiceController {
                 confidence: result.confidence
             });
 
-            res.json(result);
-
+            return res.json(result);
         } catch (error) {
             this.logger.error('Voice processing failed', {
                 error: error.message,
@@ -94,7 +94,7 @@ export class VoiceController {
                 duration: Date.now() - startTime
             });
 
-            res.status(400).json({
+            return res.status(400).json({
                 error: 'Voice processing failed',
                 message: error.message
             });
@@ -104,34 +104,33 @@ export class VoiceController {
     /**
      * Updates user voice study settings with validation
      */
-    public updateVoiceSettings = async (req: Request, res: Response): Promise<void> => {
+    public updateVoiceSettings = async (req: Request, res: Response): Promise<Response> => {
         const startTime = Date.now();
 
         try {
-            // Validate settings
             const validatedSettings = await voiceSettingsSchema.validateAsync(req.body);
 
-            // Ensure language is supported
             if (!SUPPORTED_LANGUAGES.includes(validatedSettings.language as any)) {
                 throw new Error('Unsupported language selected');
             }
 
-            // Cache invalidation for user settings
-            const cacheKey = `settings:${req.user.id}`;
-            await this.cache.del(cacheKey);
+            await this.cache.del(`settings:${req.user.id}`);
 
-            // Log performance metrics
+            const updatedSettings = await this.voiceService.updateUserSettings(
+                req.user.id,
+                validatedSettings
+            );
+
             this.logger.info('Voice settings updated', {
                 userId: req.user.id,
                 duration: Date.now() - startTime,
                 settings: validatedSettings
             });
 
-            res.json({
+            return res.json({
                 success: true,
-                settings: validatedSettings
+                settings: updatedSettings
             });
-
         } catch (error) {
             this.logger.error('Voice settings update failed', {
                 error: error.message,
@@ -139,7 +138,7 @@ export class VoiceController {
                 duration: Date.now() - startTime
             });
 
-            res.status(400).json({
+            return res.status(400).json({
                 error: 'Settings update failed',
                 message: error.message
             });
@@ -149,34 +148,27 @@ export class VoiceController {
     /**
      * Checks if voice study is available for user with caching
      */
-    public checkVoiceAvailability = async (req: Request, res: Response): Promise<void> => {
+    public checkVoiceAvailability = async (req: Request, res: Response): Promise<Response> => {
         const startTime = Date.now();
 
         try {
-            // Check cache for availability status
             const cacheKey = `voice:available:${req.user.id}`;
             const cachedStatus = await this.cache.get(cacheKey);
 
             if (cachedStatus) {
-                res.json(cachedStatus);
-                return;
+                return res.json(cachedStatus);
             }
 
-            // Check voice capability
             const availability = await this.voiceService.validateVoiceCapability(req.user.id);
-
-            // Cache result
             await this.cache.set(cacheKey, availability);
 
-            // Log performance metrics
             this.logger.info('Voice availability checked', {
                 userId: req.user.id,
                 duration: Date.now() - startTime,
                 isAvailable: availability.isAvailable
             });
 
-            res.json(availability);
-
+            return res.json(availability);
         } catch (error) {
             this.logger.error('Voice availability check failed', {
                 error: error.message,
@@ -184,16 +176,13 @@ export class VoiceController {
                 duration: Date.now() - startTime
             });
 
-            res.status(400).json({
+            return res.status(400).json({
                 error: 'Availability check failed',
                 message: error.message
             });
         }
     };
 
-    /**
-     * Returns the rate limiter middleware
-     */
     public getRateLimiter(): ReturnType<typeof rateLimit> {
         return this.rateLimiter;
     }
