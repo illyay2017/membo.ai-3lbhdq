@@ -13,7 +13,7 @@
     "coverage/**/*"
   ],
   "ext": "ts,js,json,env",
-  "exec": "tsx src/server.ts",
+  "exec": "node --import tsx src/server.ts",
   "env": {
     "NODE_ENV": "development"
   },

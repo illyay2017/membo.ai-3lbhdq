@@ -7,11 +7,12 @@
 import { Request, Response } from 'express'; // ^4.18.0
 import { StatusCodes } from 'http-status-codes'; // ^2.2.0
 import CircuitBreaker from 'opossum'; // ^6.0.0
-import { RateLimiter } from 'rate-limiter-flexible'; // ^2.4.1
+import { RateLimiterMemory } from 'rate-limiter-flexible';
 import { ContentService } from '../../services/ContentService';
 import { validateContentCreation, validateContentUpdate, validateContentId } from '../validators/content.validator';
 import { IContent, ContentStatus } from '../../interfaces/IContent';
 import { sanitizeInput } from '../../utils/validation';
+import { IUser } from '../../interfaces/IUser';
 
 // Constants for rate limiting and circuit breaking
 const RATE_LIMIT_WINDOW = parseInt(process.env.RATE_LIMIT_WINDOW || '60', 10);
@@ -24,23 +25,31 @@ const CIRCUIT_BREAKER_RESET_TIMEOUT = 30000;
  * security and performance features
  */
 export class ContentController {
-    private rateLimiter: RateLimiter;
-    private circuitBreaker: CircuitBreaker;
+    private rateLimiter!: RateLimiterMemory;
+    private circuitBreaker!: CircuitBreaker;
 
     constructor(private contentService: ContentService) {
         this.initializeRateLimiter();
         this.initializeCircuitBreaker();
+
+        // Explicitly bind all methods to ensure they're not undefined
+        Object.getOwnPropertyNames(Object.getPrototypeOf(this))
+            .filter(method => method !== 'constructor')
+            .forEach(method => {
+                const descriptor = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(this), method);
+                if (descriptor && typeof descriptor.value === 'function') {
+                    (this as any)[method] = descriptor.value.bind(this);
+                }
+            });
     }
 
     /**
      * Initializes rate limiter with configurable thresholds
      */
     private initializeRateLimiter(): void {
-        this.rateLimiter = new RateLimiter({
-            points: RATE_LIMIT_MAX_REQUESTS,
-            duration: RATE_LIMIT_WINDOW,
-            blockDuration: RATE_LIMIT_WINDOW,
-            keyPrefix: 'content_api'
+        this.rateLimiter = new RateLimiterMemory({
+            points: 100,
+            duration: 60 // per 1 minute
         });
     }
 
@@ -48,7 +57,7 @@ export class ContentController {
      * Initializes circuit breaker for external service calls
      */
     private initializeCircuitBreaker(): void {
-        this.circuitBreaker = new CircuitBreaker(async (operation: Function) => {
+        this.circuitBreaker = new CircuitBreaker(async (operation: () => Promise<any>) => {
             return operation();
         }, {
             timeout: CIRCUIT_BREAKER_TIMEOUT,
@@ -63,8 +72,7 @@ export class ContentController {
      */
     public async createContent(req: Request, res: Response): Promise<Response> {
         try {
-            // Rate limiting check
-            await this.rateLimiter.consume(req.ip);
+            await this.rateLimiter.consume(req.ip || req.socket.remoteAddress || '');
 
             // Generate correlation ID for request tracking
             const correlationId = crypto.randomUUID();
@@ -99,7 +107,7 @@ export class ContentController {
                 data: content,
                 correlationId
             });
-        } catch (error) {
+        } catch (error: any) {
             if (error.code === 'RATE_LIMIT_EXCEEDED') {
                 return res.status(StatusCodes.TOO_MANY_REQUESTS).json({
                     error: 'Rate limit exceeded',
@@ -119,7 +127,7 @@ export class ContentController {
      */
     public async getContent(req: Request, res: Response): Promise<Response> {
         try {
-            await this.rateLimiter.consume(req.ip);
+            await this.rateLimiter.consume(req.ip || req.socket.remoteAddress || '');
 
             const { error } = validateContentId(req.params.id);
             if (error) {
@@ -153,7 +161,7 @@ export class ContentController {
      */
     public async getUserContent(req: Request, res: Response): Promise<Response> {
         try {
-            await this.rateLimiter.consume(req.ip);
+            await this.rateLimiter.consume(req.ip || req.socket.remoteAddress || '');
 
             const status = req.query.status as ContentStatus;
             const content = await this.circuitBreaker.fire(async () => {
@@ -174,7 +182,7 @@ export class ContentController {
      */
     public async archiveContent(req: Request, res: Response): Promise<Response> {
         try {
-            await this.rateLimiter.consume(req.ip);
+            await this.rateLimiter.consume(req.ip || req.socket.remoteAddress || '');
 
             const { error } = validateContentId(req.params.id);
             if (error) {
@@ -202,7 +210,7 @@ export class ContentController {
      */
     public async deleteContent(req: Request, res: Response): Promise<Response> {
         try {
-            await this.rateLimiter.consume(req.ip);
+            await this.rateLimiter.consume(req.ip || req.socket.remoteAddress || '');
 
             const { error } = validateContentId(req.params.id);
             if (error) {
@@ -226,6 +234,55 @@ export class ContentController {
         } catch (error) {
             return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
                 error: 'Failed to delete content',
+                message: error.message
+            });
+        }
+    }
+
+    public async processContent(req: Request, res: Response): Promise<Response> {
+        try {
+            await this.rateLimiter.consume(req.ip || req.socket.remoteAddress || '');
+
+            const { error } = validateContentId(req.params.id);
+            if (error) {
+                return res.status(StatusCodes.BAD_REQUEST).json({
+                    error: 'Invalid content ID',
+                    details: error.details
+                });
+            }
+
+            const processed = await this.circuitBreaker.fire(async () => {
+                return this.contentService.processContent(req.params.id, req.user.id);
+            });
+
+            return res.status(StatusCodes.OK).json({ data: processed });
+        } catch (error) {
+            return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+                error: 'Failed to process content',
+                message: error.message
+            });
+        }
+    }
+
+    public async getContentStatus(req: Request, res: Response): Promise<Response> {
+        try {
+            const status = await this.contentService.getProcessingStatus(req.params.id, req.user.id);
+            return res.status(StatusCodes.OK).json({ data: status });
+        } catch (error) {
+            return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+                error: 'Failed to get content status',
+                message: error.message
+            });
+        }
+    }
+
+    public async processBatchContent(req: Request, res: Response): Promise<Response> {
+        try {
+            const processed = await this.contentService.processBatchContent(req.body.items, req.user.id);
+            return res.status(StatusCodes.OK).json({ data: processed });
+        } catch (error) {
+            return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+                error: 'Failed to process batch content',
                 message: error.message
             });
         }

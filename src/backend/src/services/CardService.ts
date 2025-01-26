@@ -4,12 +4,15 @@
  * @version 1.0.0
  */
 
-import { ICard } from '../interfaces/ICard';
+import { ContentType, ICard } from '../interfaces/ICard';
 import { Card } from '../models/Card';
 import { FSRSAlgorithm } from '../core/study/FSRSAlgorithm';
 import { CardGenerator } from '../core/ai/cardGenerator';
 import { StudyModes } from '../constants/studyModes';
-import dayjs from 'dayjs'; // ^1.11.0
+import { openai } from '../config/openai';
+import { IStudySession } from '../interfaces/IStudySession';
+import Redis from 'ioredis';
+import { ContentStatus } from '@/interfaces/IContent';
 
 /**
  * Enhanced service class for flashcard management with retention optimization
@@ -90,7 +93,10 @@ export class CardService {
                 },
                 source: 'user_input',
                 sourceUrl: null,
-                status: ContentStatus.NEW
+                status: ContentStatus.NEW,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+                processedAt: new Date()
             };
 
             const generatedCards = await this.cardGenerator.generateFromContent(contentData);
@@ -150,37 +156,41 @@ export class CardService {
      * @param mode Study mode used
      * @returns Updated card with new metrics
      */
-    public async recordReview(
-        cardId: string,
-        rating: number,
-        mode: StudyModes
-    ): Promise<ICard> {
+    public async recordReview(cardId: string, rating: number, mode: StudyModes): Promise<ICard> {
         try {
             const card = await this.cardModel.findById(cardId);
             if (!card) {
                 throw new Error('Card not found');
             }
 
-            // Calculate new FSRS data with retention metrics
+            // Create a proper IStudySession object
+            const studySession: IStudySession = {
+                id: crypto.randomUUID(),
+                userId: card.userId,
+                mode,
+                startTime: new Date(),
+                endTime: new Date(),
+                voiceEnabled: mode === StudyModes.VOICE,
+                cardsStudied: 1,
+                performance: {
+                    totalCards: 1,
+                    correctCount: rating >= 3 ? 1 : 0,
+                    averageConfidence: rating / 4,
+                    studyStreak: card.fsrsData.streakCount || 0,
+                    timeSpent: 0,
+                    fsrsProgress: {
+                        averageStability: card.fsrsData.stability,
+                        averageDifficulty: card.fsrsData.difficulty,
+                        retentionRate: card.fsrsData.retentionScore || 0,
+                        intervalProgress: 0
+                    }
+                }
+            };
+
             const updatedFSRSData = this.fsrsAlgorithm.updateCardFSRSData(
                 card,
                 rating,
-                {
-                    voiceEnabled: mode === StudyModes.VOICE,
-                    performance: {
-                        totalCards: 1,
-                        correctCount: rating >= 3 ? 1 : 0,
-                        averageConfidence: rating / 4,
-                        studyStreak: card.fsrsData.streakCount || 0,
-                        timeSpent: 0,
-                        fsrsProgress: {
-                            averageStability: card.fsrsData.stability,
-                            averageDifficulty: card.fsrsData.difficulty,
-                            retentionRate: card.fsrsData.retentionScore || 0,
-                            intervalProgress: 0
-                        }
-                    }
-                }
+                studySession
             );
 
             // Calculate next review date
@@ -221,5 +231,24 @@ export class CardService {
             !card.frontContent.text.includes('```') &&
             !card.backContent.text.includes('```')
         );
+    }
+
+    public async createCards(cardsData: Partial<ICard>[]): Promise<ICard[]> {
+        try {
+            const cards = await Promise.all(
+                cardsData.map(cardData => this.createCard(cardData))
+            );
+            return cards;
+        } catch (error) {
+            throw new Error(`Failed to create cards: ${error.message}`);
+        }
+    }
+
+    public async deleteCard(cardId: string): Promise<void> {
+        try {
+            await this.cardModel.delete(cardId);
+        } catch (error) {
+            throw new Error(`Failed to delete card: ${error.message}`);
+        }
     }
 }

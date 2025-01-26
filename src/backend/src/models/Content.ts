@@ -5,8 +5,8 @@
 
 import { PostgrestFilterBuilder } from '@supabase/postgrest-js'; // v1.8.4
 import { ValidationError } from 'yup'; // v1.3.2
-import { EncryptionService } from '@membo/encryption'; // v1.0.0
-import { AuditLogger } from '@membo/audit-logger'; // v1.0.0
+import { EncryptionService } from '../services/EncryptionService';
+import { auditLogger } from '../services/AuditLoggerService';
 import { IContent, ContentStatus } from '../interfaces/IContent';
 import supabase from '../config/supabase';
 import * as yup from 'yup';
@@ -30,11 +30,9 @@ export class Content {
   private readonly tableName: string = 'contents';
   private readonly db = supabase;
   private readonly encryptionService: EncryptionService;
-  private readonly auditLogger: AuditLogger;
 
   constructor() {
     this.encryptionService = new EncryptionService();
-    this.auditLogger = new AuditLogger();
   }
 
   /**
@@ -71,7 +69,7 @@ export class Content {
       if (error) throw error;
 
       // Log audit trail
-      await this.auditLogger.log({
+      auditLogger.info('content.create', {
         action: 'content.create',
         userId: validatedData.userId,
         resourceId: data.id,
@@ -185,7 +183,7 @@ export class Content {
       if (error) throw error;
 
       // Log status change
-      await this.auditLogger.log({
+      auditLogger.info('content.status_update', {
         action: 'content.status_update',
         userId,
         resourceId: id,
@@ -228,7 +226,7 @@ export class Content {
       if (error) throw error;
 
       // Log deletion
-      await this.auditLogger.log({
+      auditLogger.info('content.delete', {
         action: 'content.delete',
         userId,
         resourceId: id,

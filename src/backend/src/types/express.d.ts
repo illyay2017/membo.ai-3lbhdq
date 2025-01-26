@@ -44,7 +44,7 @@ declare global {
              * Authenticated user information from JWT token verification.
              * Undefined if request is not authenticated.
              */
-            user?: IUser;
+            user?: IUser & { lastAccess: Date };
 
             /**
              * Validated and sanitized request data after middleware processing.
@@ -57,6 +57,13 @@ declare global {
              * Limits vary based on user role as defined in UserRole enum.
              */
             rateLimit: RateLimitInfo;
+        }
+
+        /**
+         * Type for requests that require authentication
+         */
+        interface AuthenticatedRequest extends Request {
+            user: IUser & { lastAccess: Date };
         }
     }
 }

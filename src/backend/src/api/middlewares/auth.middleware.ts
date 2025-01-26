@@ -6,36 +6,30 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { createClient } from 'redis';
-import { createLogger, format, transports } from 'winston';
 import { verifyToken } from '../../utils/jwt';
 import { UserRole } from '../../constants/userRoles';
 import { ErrorCodes, createErrorDetails } from '../../constants/errorCodes';
+import { IUser } from '../../interfaces/IUser';
+import { auditLogger } from '../../services/AuditLoggerService';
+
+declare module 'express' {
+  interface Request {
+    user?: IUser & {
+      lastAccess: Date;
+    };
+  }
+}
 
 // Initialize Redis client for token blacklist and role cache
 const redisClient = createClient({
   url: process.env.REDIS_URL || 'redis://localhost:6379'
 });
 
-// Configure security audit logger
-const auditLogger = createLogger({
-  level: 'info',
-  format: format.combine(
-    format.timestamp(),
-    format.json()
-  ),
-  transports: [
-    new transports.File({ filename: 'security-audit.log' })
-  ]
-});
-
 /**
  * Extended Express Request interface with authenticated user and security context
  */
 export interface AuthenticatedRequest extends Request {
-  user?: {
-    id: string;
-    email: string;
-    role: UserRole;
+  user?: IUser & {
     lastAccess: Date;
   };
   securityContext?: {
@@ -221,25 +215,26 @@ redisClient.connect().catch((error) => {
   auditLogger.error('Redis connection failed', { error });
   process.exit(1);
 });
-```
 
-This implementation provides a robust authentication and authorization middleware with the following features:
 
-1. JWT token verification with enhanced security checks
-2. Role-based access control with Redis caching
-3. Token blacklist management
-4. Comprehensive security audit logging
-5. RFC 7807 compliant error responses
-6. IP and user agent tracking
-7. Secure session context management
-8. Performance optimization through caching
-9. Detailed security event logging
+// This implementation provides a robust authentication and authorization middleware with the following features:
 
-The middleware can be used in routes like this:
+// 1. JWT token verification with enhanced security checks
+// 2. Role-based access control with Redis caching
+// 3. Token blacklist management
+// 4. Comprehensive security audit logging
+// 5. RFC 7807 compliant error responses
+// 6. IP and user agent tracking
+// 7. Secure session context management
+// 8. Performance optimization through caching
+// 9. Detailed security event logging
 
-```typescript
-router.get('/protected',
-  authenticate,
-  authorize([UserRole.PRO_USER, UserRole.POWER_USER]),
-  protectedController
-);
+// The middleware can be used in routes like this:
+
+// ```typescript
+// router.get('/protected',
+//   authenticate,
+//   authorize([UserRole.PRO_USER, UserRole.POWER_USER]),
+//   protectedController
+// );
+// ```

@@ -75,7 +75,7 @@ const validateStudyModeAccess = (modes: StudyModes[], userRole: string): boolean
 /**
  * Create card validation schema with role-based validation
  */
-export const validateCreateCard = async (requestBody: Partial<ICard>, userRole: string) => {
+export const validateCreateCard = async (requestBody: Partial<ICard>, userRole?: string) => {
     const createCardSchema = Joi.object({
         frontContent: contentSchema.required(),
         backContent: contentSchema.required(),
@@ -83,7 +83,7 @@ export const validateCreateCard = async (requestBody: Partial<ICard>, userRole: 
         compatibleModes: Joi.array()
             .items(Joi.string().valid(...Object.values(StudyModes)))
             .custom((value, helpers) => {
-                if (!validateStudyModeAccess(value, userRole)) {
+                if (!userRole || !validateStudyModeAccess(value, userRole)) {
                     return helpers.error('array.studyModeAccess');
                 }
                 return value;
@@ -108,7 +108,7 @@ export const validateCreateCard = async (requestBody: Partial<ICard>, userRole: 
 /**
  * Update card validation schema with partial update support
  */
-export const validateUpdateCard = async (requestBody: Partial<ICard>, userRole: string) => {
+export const validateUpdateCard = async (requestBody: Partial<ICard>, userRole?: string) => {
     const updateCardSchema = Joi.object({
         frontContent: contentSchema.optional(),
         backContent: contentSchema.optional(),
@@ -116,7 +116,7 @@ export const validateUpdateCard = async (requestBody: Partial<ICard>, userRole: 
         compatibleModes: Joi.array()
             .items(Joi.string().valid(...Object.values(StudyModes)))
             .custom((value, helpers) => {
-                if (!validateStudyModeAccess(value, userRole)) {
+                if (!userRole || !validateStudyModeAccess(value, userRole)) {
                     return helpers.error('array.studyModeAccess');
                 }
                 return value;
@@ -143,7 +143,7 @@ export const validateUpdateCard = async (requestBody: Partial<ICard>, userRole: 
 /**
  * Bulk create cards validation schema with enhanced batch validation
  */
-export const validateBulkCreateCards = async (requestBody: { cards: Partial<ICard>[] }, userRole: string) => {
+export const validateBulkCreateCards = async (requestBody: { cards: Partial<ICard>[] }, userRole?: string) => {
     const bulkCreateSchema = Joi.object({
         cards: Joi.array()
             .items(Joi.object({
@@ -153,7 +153,7 @@ export const validateBulkCreateCards = async (requestBody: { cards: Partial<ICar
                 compatibleModes: Joi.array()
                     .items(Joi.string().valid(...Object.values(StudyModes)))
                     .custom((value, helpers) => {
-                        if (!validateStudyModeAccess(value, userRole)) {
+                        if (!userRole || !validateStudyModeAccess(value, userRole)) {
                             return helpers.error('array.studyModeAccess');
                         }
                         return value;

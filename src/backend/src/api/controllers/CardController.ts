@@ -5,12 +5,14 @@
  */
 
 import { Request, Response, NextFunction } from 'express'; // ^4.18.0
-import asyncHandler from 'express-async-handler'; // ^1.2.0
-import { RoleValidator } from '@membo/auth'; // ^1.0.0
+import { asyncHandler } from '../../utils/asyncHandler';
+import { RoleValidator } from '../../auth/RoleValidator';
+import { AuthenticatedRequest } from '../middlewares/auth.middleware';
 import { CardService } from '../../services/CardService';
 import { validateCreateCard, validateUpdateCard, validateBulkCreateCards } from '../validators/card.validator';
 import { StudyModes } from '../../constants/studyModes';
 import { ICard } from '../../interfaces/ICard';
+import { injectable } from 'tsyringe';
 
 /**
  * Enhanced controller class for flashcard management with performance optimization
@@ -28,10 +30,18 @@ export class CardController {
     /**
      * Creates a new flashcard with role validation and performance monitoring
      */
-    public createCard = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    public createCard = asyncHandler(async (req: AuthenticatedRequest, res: Response): Promise<void> => {
         const startTime = Date.now();
 
-        // Validate user role and permissions
+        if (!req.user) {
+            res.status(401).json({
+                success: false,
+                error: 'Authentication required'
+            });
+            return;
+        }
+
+        // Now TypeScript knows req.user exists
         const userRole = await this.roleValidator.validateUserRole(req.user.id);
         await validateCreateCard(req.body, userRole);
 
@@ -54,10 +64,14 @@ export class CardController {
     /**
      * Generates cards from content with AI processing and role-based validation
      */
-    public generateCards = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    public generateCards = asyncHandler(async (req: AuthenticatedRequest, res: Response): Promise<void> => {
         const startTime = Date.now();
 
-        // Validate user role and rate limits
+        if (!req.user) {
+            res.status(401).json({ success: false, error: 'Authentication required' });
+            return;
+        }
+
         const userRole = await this.roleValidator.validateUserRole(req.user.id);
         await this.roleValidator.checkRateLimit(req.user.id, 'card_generation');
 
@@ -81,7 +95,12 @@ export class CardController {
     /**
      * Retrieves a specific card with access control validation
      */
-    public getCard = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    public getCard = asyncHandler(async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+        if (!req.user) {
+            res.status(401).json({ success: false, error: 'Authentication required' });
+            return;
+        }
+
         const { id } = req.params;
         const card = await this.cardService.getCardById(id);
 
@@ -201,10 +220,15 @@ export class CardController {
     /**
      * Updates an existing card with validation and access control
      */
-    public updateCard = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    public updateCard = asyncHandler(async (req: AuthenticatedRequest, res: Response): Promise<void> => {
         const { id } = req.params;
         const userRole = await this.roleValidator.validateUserRole(req.user.id);
         
+        if (!req.user) {
+            res.status(401).json({ success: false, error: 'Authentication required' });
+            return;
+        }
+
         // Validate update data
         await validateUpdateCard(req.body, userRole);
 
@@ -230,9 +254,14 @@ export class CardController {
     /**
      * Deletes a card with ownership validation
      */
-    public deleteCard = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    public deleteCard = asyncHandler(async (req: AuthenticatedRequest, res: Response): Promise<void> => {
         const { id } = req.params;
         const card = await this.cardService.getCardById(id);
+
+        if (!req.user) {
+            res.status(401).json({ success: false, error: 'Authentication required' });
+            return;
+        }
 
         // Validate card ownership
         if (card.userId !== req.user.id) {
@@ -247,4 +276,13 @@ export class CardController {
 
         res.status(204).send();
     });
+
+    public async bulkCreateCards(req: Request, res: Response, next: NextFunction): Promise<void> {
+        try {
+            const cards = await this.cardService.createCards(req.body);
+            res.status(201).json(cards);
+        } catch (error) {
+            next(error);
+        }
+    }
 }

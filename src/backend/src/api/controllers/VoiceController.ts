@@ -12,6 +12,7 @@ import { Keyv } from 'keyv';
 import KeyvRedis from '@keyv/redis';
 import { VoiceService } from '../../services/VoiceService';
 import { voiceSettingsSchema, voiceInputSchema } from '../validators/voice.validator';
+import { Redis } from 'ioredis';
 
 // Constants
 const SUPPORTED_LANGUAGES = ['en', 'es', 'fr', 'de', 'it', 'pt', 'ja', 'ko', 'zh'] as const;
@@ -27,11 +28,16 @@ const RATE_LIMIT = {
 export class VoiceController {
     private cache!: Awaited<ReturnType<typeof caching>>;
     private readonly rateLimiter: ReturnType<typeof rateLimit>;
+    private readonly logger: winston.Logger;
 
     constructor(
         private readonly voiceService: VoiceService,
-        private readonly logger: winston.Logger
+        config: {
+            logger: winston.Logger;
+            redis: Redis;
+        }
     ) {
+        this.logger = config.logger.child({ controller: 'VoiceController' });
         this.initializeCache();
         this.rateLimiter = rateLimit({
             windowMs: RATE_LIMIT.WINDOW_MS,
@@ -40,8 +46,6 @@ export class VoiceController {
             standardHeaders: true,
             legacyHeaders: false
         });
-
-        this.logger = logger.child({ controller: 'VoiceController' });
     }
 
     private async initializeCache() {

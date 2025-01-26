@@ -4,10 +4,10 @@
  * @version 1.0.0
  */
 
-import { Queue } from 'bull'; // ^4.10.0
+import Bull from 'bull'; // ^4.10.0
 import Redis from 'ioredis'; // ^5.0.0
 import winston from 'winston'; // ^3.8.0
-import { SecurityService } from '@membo/security'; // ^1.0.0
+import { SecurityService } from './SecurityService';
 import { IContent, ContentStatus } from '../interfaces/IContent';
 import { Content } from '../models/Content';
 import { ContentProcessor } from '../core/ai/contentProcessor';
@@ -38,20 +38,19 @@ const logger = winston.createLogger({
  */
 export class ContentService {
   private contentModel: Content;
-  private processingQueue: Queue;
+  private processingQueue: Bull.Queue;
   private cacheClient: Redis;
   private securityService: SecurityService;
   private contentProcessor: ContentProcessor;
 
   constructor(
     processor: ContentProcessor,
-    security: SecurityService,
     cache: Redis
   ) {
     this.contentModel = new Content();
     this.contentProcessor = processor;
-    this.securityService = security;
     this.cacheClient = cache;
+    this.securityService = new SecurityService();
     this.initializeQueue();
   }
 
@@ -59,7 +58,7 @@ export class ContentService {
    * Initializes the processing queue with retry and monitoring
    */
   private initializeQueue(): void {
-    this.processingQueue = new Queue('content-processing', {
+    this.processingQueue = new Bull('content-processing', {
       redis: {
         host: process.env.REDIS_HOST,
         port: parseInt(process.env.REDIS_PORT || '6379'),
@@ -280,5 +279,25 @@ export class ContentService {
       });
       throw error;
     }
+  }
+
+  // Add processing status tracking
+  public async getProcessingStatus(contentId: string, userId: string): Promise<ProcessingStatus> {
+    const status = await this.cacheClient.get(`processing:${contentId}`);
+    if (!status) {
+      const content = await this.contentModel.findById(contentId, userId);
+      return content?.status || 'unknown';
+    }
+    return status;
+  }
+
+  // Add batch processing support
+  public async processBatchContent(items: ContentItem[], userId: string): Promise<ProcessedContent[]> {
+    const jobs = items.map(item => this.processingQueue.add('content-processing', {
+      contentId: item.id,
+      userId
+    }));
+    
+    return Promise.all(jobs);
   }
 }

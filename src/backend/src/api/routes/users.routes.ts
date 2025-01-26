@@ -6,31 +6,19 @@
 
 import express, { Router } from 'express'; // ^4.18.2
 import helmet from 'helmet'; // ^7.0.0
-import winston from 'winston'; // ^3.8.2
 import rateLimit from 'express-rate-limit'; // ^6.7.0
 import { UserController } from '../controllers/UserController';
+import { UserService } from '../../services/UserService';
 import { authenticate, authorize } from '../middlewares/auth.middleware';
 import { validateRequest } from '../middlewares/validation.middleware';
 import { UserRole } from '../../constants/userRoles';
+import { auditLogger } from '../../services/AuditLoggerService';
 
 // Initialize secure router with enhanced protections
 const router: Router = express.Router();
 
 // Configure security headers
 router.use(helmet());
-
-// Configure security audit logger
-const auditLogger = winston.createLogger({
-  level: 'info',
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.json()
-  ),
-  defaultMeta: { service: 'user-routes' },
-  transports: [
-    new winston.transports.File({ filename: 'logs/user-security.log' })
-  ]
-});
 
 // Rate limiting configuration based on user roles
 const RATE_LIMIT_WINDOW = 15 * 60 * 1000; // 15 minutes in milliseconds
@@ -66,6 +54,10 @@ const publicLimiter = rateLimit({
   }
 });
 
+// Initialize controller
+const userService = new UserService();
+const userController = new UserController(userService);
+
 /**
  * Public Routes
  */
@@ -78,7 +70,7 @@ router.post(
   async (req, res, next) => {
     try {
       auditLogger.info('Registration attempt', { ip: req.ip });
-      await UserController.register(req, res, next);
+      await userController.register(req, res, next);
     } catch (error) {
       auditLogger.error('Registration failed', { error, ip: req.ip });
       next(error);
@@ -94,7 +86,7 @@ router.post(
   async (req, res, next) => {
     try {
       auditLogger.info('Login attempt', { ip: req.ip });
-      await UserController.login(req, res, next);
+      await userController.login(req, res, next);
     } catch (error) {
       auditLogger.error('Login failed', { error, ip: req.ip });
       next(error);
@@ -108,7 +100,7 @@ router.post(
   publicLimiter,
   async (req, res, next) => {
     try {
-      await UserController.refreshToken(req, res, next);
+      await userController.refreshToken(req, res, next);
     } catch (error) {
       auditLogger.error('Token refresh failed', { error, ip: req.ip });
       next(error);
@@ -122,7 +114,7 @@ router.get(
   publicLimiter,
   async (req, res, next) => {
     try {
-      await UserController.verifyEmail(req, res, next);
+      await userController.verifyEmail(req, res, next);
     } catch (error) {
       auditLogger.error('Email verification failed', { error, ip: req.ip });
       next(error);
@@ -143,7 +135,7 @@ router.put(
     const limiter = createRoleLimiter(MAX_REQUESTS_PER_WINDOW[req.user.role]);
     limiter(req, res, async () => {
       try {
-        await UserController.updateProfile(req, res, next);
+        await userController.updateProfile(req, res, next);
       } catch (error) {
         auditLogger.error('Profile update failed', {
           error,
@@ -164,7 +156,7 @@ router.put(
     const limiter = createRoleLimiter(MAX_REQUESTS_PER_WINDOW[req.user.role]);
     limiter(req, res, async () => {
       try {
-        await UserController.updatePreferences(req, res, next);
+        await userController.updatePreferences(req, res, next);
       } catch (error) {
         auditLogger.error('Preferences update failed', {
           error,
@@ -191,7 +183,7 @@ router.get(
         adminId: req.user.id,
         role: req.user.role
       });
-      await UserController.getAllUsers(req, res, next);
+      await userController.getAllUsers(req, res, next);
     } catch (error) {
       auditLogger.error('Admin user list access failed', {
         error,
@@ -213,7 +205,7 @@ router.post(
         adminId: req.user.id,
         targetUserId: req.params.userId
       });
-      await UserController.disableUser(req, res, next);
+      await userController.disableUser(req, res, next);
     } catch (error) {
       auditLogger.error('User account disable failed', {
         error,

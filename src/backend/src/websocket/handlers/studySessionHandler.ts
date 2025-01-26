@@ -61,16 +61,19 @@ export class StudySessionHandler {
     private readonly heartbeatInterval: number;
 
     constructor(
-        studySessionManager: StudySessionManager,
-        logger: winston.Logger
+        private readonly studySessionManager: StudySessionManager = new StudySessionManager(),
+        private readonly logger: winston.Logger = winston.createLogger({
+            level: 'info',
+            format: winston.format.combine(
+                winston.format.timestamp(),
+                winston.format.json()
+            ),
+            transports: [new winston.transports.Console()]
+        })
     ) {
-        this.studySessionManager = studySessionManager;
-        this.logger = logger;
         this.activeStudySessions = new Map();
         this.sessionStates = new Map();
         this.heartbeatInterval = PERFORMANCE_THRESHOLDS.HEARTBEAT_INTERVAL_MS;
-
-        // Initialize heartbeat monitoring
         setInterval(() => this.checkHeartbeats(), this.heartbeatInterval);
     }
 

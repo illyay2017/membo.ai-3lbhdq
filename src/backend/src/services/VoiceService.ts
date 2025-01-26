@@ -9,7 +9,7 @@ import winston from 'winston'; // ^3.10.0
 import { VoiceProcessor } from '../core/ai/voiceProcessor';
 import { IStudySession } from '../interfaces/IStudySession';
 import { openai } from '../config/openai';
-import { LRUCache } from 'lru-cache'; // ^9.0.0
+import { LRUCache } from 'lru-cache';
 import { StudyModes } from '../constants/studyModes';
 
 /**
@@ -48,7 +48,29 @@ export class VoiceService {
   private readonly cache: LRUCache<string, any>;
   private readonly config: VoiceServiceConfig;
 
-  constructor(logger: winston.Logger, config: VoiceServiceConfig) {
+  constructor(
+    logger: winston.Logger = winston.createLogger({
+        level: 'info',
+        format: winston.format.combine(
+            winston.format.timestamp(),
+            winston.format.json()
+        ),
+        transports: [new winston.transports.Console()]
+    }),
+    config: VoiceServiceConfig = {
+        maxAudioDuration: 60,
+        confidenceThreshold: 0.8,
+        supportedLanguages: ['en', 'es', 'fr'],
+        cacheConfig: {
+            ttl: 3600,
+            maxSize: 1000
+        },
+        retryConfig: {
+            maxAttempts: 3,
+            backoffMs: 1000
+        }
+    }
+  ) {
     this.logger = logger.child({ service: 'VoiceService' });
     this.voiceProcessor = new VoiceProcessor(
       this.logger,
@@ -60,7 +82,7 @@ export class VoiceService {
     this.config = config;
     this.cache = new LRUCache({
       max: config.cacheConfig.maxSize,
-      ttl: config.cacheConfig.ttl * 1000, // Convert to milliseconds
+      ttl: config.cacheConfig.ttl * 1000,
       updateAgeOnGet: true
     });
 

@@ -130,19 +130,19 @@ export const createValidationMiddleware = (
  * @param res - Express response object
  * @param next - Next middleware function
  */
-export const validateRequest = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
-  const schema = (req as any).validationSchema;
-  
-  if (!schema) {
-    return next();
+export const validateRequest = (validationFn: (data: any, userRole?: string) => Promise<any>) => 
+  (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userRole = (req as any).user?.role;
+    validationFn(req.body, userRole)
+      .then(validatedData => {
+        req.body = validatedData;
+        next();
+      })
+      .catch(error => next(error));
+  } catch (error) {
+    next(error);
   }
-
-  const middleware = createValidationMiddleware(schema);
-  await middleware(req, res, next);
 };
 
 /**

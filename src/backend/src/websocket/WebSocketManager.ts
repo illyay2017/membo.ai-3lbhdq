@@ -81,9 +81,19 @@ export class WebSocketManager {
         server: http.Server,
         studySessionHandler: StudySessionHandler,
         voiceHandler: VoiceHandler,
-        logger: winston.Logger,
         connectionPool: ConnectionPool,
-        metrics: MetricsCollector
+        metrics: MetricsCollector,
+        private readonly logger: winston.Logger = winston.createLogger({
+            level: 'info',
+            format: winston.format.combine(
+                winston.format.timestamp(),
+                winston.format.json()
+            ),
+            defaultMeta: { service: 'WebSocketManager' },
+            transports: [
+                new winston.transports.Console()
+            ]
+        })
     ) {
         this.wss = new WebSocket.Server({
             server,
@@ -94,7 +104,6 @@ export class WebSocketManager {
 
         this.studySessionHandler = studySessionHandler;
         this.voiceHandler = voiceHandler;
-        this.logger = logger.child({ service: 'WebSocketManager' });
         this.activeConnections = new Map();
         this.connectionPool = connectionPool;
         this.metrics = metrics;
@@ -258,5 +267,31 @@ export class WebSocketManager {
         setTimeout(() => this.rateLimiter.delete(clientId), 60000);
 
         return true;
+    }
+
+    /**
+     * Cleanup resources and close connections
+     */
+    public async cleanup(): Promise<void> {
+        try {
+            // Close all active connections
+            for (const [clientId, ws] of this.activeConnections) {
+                ws.close(1000, 'Server shutting down');
+                this.handleDisconnect(clientId);
+            }
+
+            // Close the WebSocket server
+            await new Promise<void>((resolve, reject) => {
+                this.wss.close((err) => {
+                    if (err) reject(err);
+                    else resolve();
+                });
+            });
+
+            this.logger.info('WebSocket manager cleaned up successfully');
+        } catch (error) {
+            this.logger.error('Error during WebSocket cleanup', { error });
+            throw error;
+        }
     }
 }

@@ -5,13 +5,14 @@ services:
       dockerfile: Dockerfile
       target: development
     ports:
-      - "4000:4000"  # API port
+      - "4001:4000"  # Map container port 4000 to host port 4001
       - "9229:9229"  # Debug port
     volumes:
       - .:/app:delegated
+      - /app/node_modules
     environment:
       - NODE_ENV=development
-      - PORT=4000
+      - PORT=4000  # Keep internal port as 4000
       - SUPABASE_URL=${SUPABASE_URL}
       - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
       - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
@@ -46,6 +47,7 @@ services:
           memory: 256M
     networks:
       - backend
+    container_name: membo_api
 
   cache:
     image: redis:7.2.1-alpine
