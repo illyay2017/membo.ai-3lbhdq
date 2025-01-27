@@ -11,6 +11,7 @@ import { PerformanceMonitor } from 'performance-monitor';
 import { StudyService } from '../../services/StudyService';
 import { createStudySessionSchema, updateStudySessionSchema, validateStudyMode } from '../validators/study.validator';
 import { StudyModes } from '../../constants/studyModes';
+import { performanceMonitor } from '../../core/monitoring/PerformanceMonitor';
 
 /**
  * Controller handling HTTP requests for study session management with comprehensive
@@ -259,4 +260,28 @@ export class StudyController {
             next(error);
         }
     };
+
+    public async getSessionState(req: Request, res: Response): Promise<void> {
+        const spanId = performanceMonitor.startSpan('get_session_state', {
+            type: 'api_request',
+            userId: req.user?.id
+        });
+
+        try {
+            const session = await this.studyService.getSessionState(req.params.sessionId);
+            
+            performanceMonitor.endSpan(spanId, {
+                success: true,
+                cardCount: session.cards.length
+            });
+
+            res.json(session);
+        } catch (error) {
+            performanceMonitor.endSpan(spanId, {
+                success: false,
+                error: error.message
+            });
+            throw error;
+        }
+    }
 }

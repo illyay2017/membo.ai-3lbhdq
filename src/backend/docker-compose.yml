@@ -8,8 +8,8 @@ services:
       - "4001:4000"  # Map host port 4001 to container port 4000
       - "9229:9229"  # Debug port
     volumes:
-      - .:/app:delegated
-      - /app/node_modules
+      - .:/app
+      - /app/node_modules  # This should be an anonymous volume
     environment:
       - NODE_ENV=development
       - PORT=4000    # Internal port stays at 4000
@@ -46,7 +46,7 @@ services:
           cpus: '0.25'
           memory: 256M
     networks:
-      - backend
+      - membo_network
     container_name: membo_api
 
   cache:
@@ -58,7 +58,7 @@ services:
     volumes:
       - redis_data:/data
     networks:
-      - backend
+      - membo_network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -82,7 +82,7 @@ services:
       - source: prometheus_config
         target: /etc/prometheus/prometheus.yml
     networks:
-      - backend
+      - membo_network
     container_name: membo_prometheus
 
   grafana:
@@ -98,7 +98,7 @@ services:
       prometheus:
         condition: service_started
     networks:
-      - backend
+      - membo_network
     container_name: membo_grafana
 
 volumes:
@@ -112,13 +112,13 @@ volumes:
     name: membo_grafana_data
 
 networks:
-  backend:
+  membo_network:
     driver: bridge
     enable_ipv6: true
     attachable: true
     labels:
       com.membo.environment: development
-      com.membo.network: backend
+      com.membo.network: membo_network
 
 configs:
   prometheus_config:
