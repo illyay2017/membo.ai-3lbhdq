@@ -108,7 +108,7 @@ jobs:
 
     steps:
       - name: Download build artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: web-build
           path: ${{ env.WORKING_DIRECTORY }}/dist
