@@ -8,12 +8,9 @@ import { Request, Response } from 'express';
 import winston from 'winston';
 import rateLimit from 'express-rate-limit';
 import { caching } from 'cache-manager';
-import { Keyv } from 'keyv';
-import KeyvRedis from '@keyv/redis';
 import { VoiceService } from '../../services/VoiceService';
 import { voiceSettingsSchema, voiceInputSchema } from '../validators/voice.validator';
 import { Redis } from 'ioredis';
-
 // Constants
 const SUPPORTED_LANGUAGES = ['en', 'es', 'fr', 'de', 'it', 'pt', 'ja', 'ko', 'zh'] as const;
 const CACHE_TTL = 300; // 5 minutes
@@ -38,6 +35,21 @@ export class VoiceController {
         }
     ) {
         this.logger = config.logger.child({ controller: 'VoiceController' });
+        
+        // Initialize Redis with non-cluster config
+        const redis = new Redis({
+            host: 'cache',  // Docker service name
+            port: 6379,
+            maxRetriesPerRequest: 3,
+            retryStrategy: (times: number) => {
+                return Math.min(times * 50, 2000);
+            }
+        });
+
+        redis.on('error', (err) => {
+            this.logger.error('Redis connection error:', err);
+        });
+
         this.initializeCache();
         this.rateLimiter = rateLimit({
             windowMs: RATE_LIMIT.WINDOW_MS,
@@ -48,58 +60,40 @@ export class VoiceController {
         });
     }
 
-    private async initializeCache() {
-        // Use Redis store with connection to docker service named 'cache'
-        const keyv = new Keyv({
-            store: new KeyvRedis('redis://cache:6379')
-        });
-
-        this.cache = await caching(keyv, {
-            ttl: CACHE_TTL * 1000
+    private async initializeCache(): Promise<void> {
+        this.cache = await caching('memory', {
+            ttl: 3600000, // 1 hour
+            max: 1000
         });
     }
 
     /**
      * Processes voice input for study session with performance monitoring
      */
-    public processVoiceInput = async (req: Request, res: Response): Promise<Response> => {
-        const startTime = Date.now();
-
+    public processVoice = async (req: Request, res: Response) => {
         try {
-            const validatedInput = await voiceInputSchema.validateAsync(req.body);
-            const cacheKey = `voice:${req.user.id}:${validatedInput.studySessionId}`;
-            
-            const cachedResult = await this.cache.get(cacheKey);
-            if (cachedResult) {
-                return res.json(cachedResult);
-            }
+            const { audioData, language, studySessionId, expectedAnswer } = req.body;
 
-            const result = await this.voiceService.processStudyAnswer(
-                validatedInput.studySessionId,
-                Buffer.from(validatedInput.audioData, 'base64'),
-                validatedInput.expectedAnswer,
-                validatedInput.language
+            // Log the received data for debugging
+            console.log('Received voice processing request:', {
+                language,
+                studySessionId,
+                expectedAnswer,
+                audioDataLength: audioData?.length
+            });
+
+            const result = await this.voiceService.processVoice(
+                audioData,
+                language,
+                studySessionId,
+                expectedAnswer
             );
 
-            await this.cache.set(cacheKey, result);
-
-            this.logger.info('Voice input processed', {
-                userId: req.user.id,
-                sessionId: validatedInput.studySessionId,
-                processingTime: Date.now() - startTime,
-                confidence: result.confidence
-            });
-
-            return res.json(result);
+            return res.status(200).json(result);
         } catch (error) {
-            this.logger.error('Voice processing failed', {
-                error: error.message,
-                userId: req.user?.id,
-                duration: Date.now() - startTime
-            });
-
-            return res.status(400).json({
-                error: 'Voice processing failed',
+            console.error('Error processing voice:', error);
+            return res.status(500).json({
+                error: "Processing failed",
                 message: error.message
             });
         }
@@ -189,5 +183,19 @@ export class VoiceController {
 
     public getRateLimiter(): ReturnType<typeof rateLimit> {
         return this.rateLimiter;
+    }
+
+    public async getVoiceSettings(req: Request, res: Response): Promise<void> {
+        try {
+            const settings = {
+                supportedLanguages: ['en', 'es', 'fr'],
+                maxAudioDuration: 60,
+                confidenceThreshold: 0.8
+            };
+            res.json(settings);
+        } catch (error) {
+            this.logger.error('Failed to get voice settings:', error);
+            throw error;
+        }
     }
 }

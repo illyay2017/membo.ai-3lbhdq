@@ -14,8 +14,9 @@ import helmet from 'helmet';
 import compression from 'compression';
 import cors from 'cors';
 import http from 'http';
+import net from 'net';
 import { WebSocketManager } from './websocket/WebSocketManager';
-import router from './api/routes';
+import routes from './api/routes';
 import { logger } from './config/logger';
 import winston from 'winston';
 import { StudySessionHandler } from './websocket/handlers/studySessionHandler';
@@ -24,6 +25,7 @@ import { ConnectionPool } from './websocket/ConnectionPool';
 import { MetricsCollector } from './core/metrics/MetricsCollector';
 import { StudySessionManager } from './core/study/studySessionManager';
 import { VoiceService } from './services/VoiceService';
+import bodyParser from 'body-parser';
 
 // Initialize Express application
 const app: Application = express();
@@ -71,8 +73,8 @@ const configureMiddleware = (app: Application): void => {
   }));
 
   // Request parsing
-  app.use(express.json({ limit: process.env.MAX_REQUEST_SIZE || '10mb' }));
-  app.use(express.urlencoded({ extended: true, limit: process.env.MAX_REQUEST_SIZE || '10mb' }));
+  app.use(bodyParser.json({limit: '50mb'}));
+  app.use(bodyParser.urlencoded({limit: '50mb', extended: true}));
 
   // Response compression
   app.use(compression({
@@ -112,14 +114,20 @@ const configureMiddleware = (app: Application): void => {
   });
 };
 
-// Create HTTP server
+// Create and configure HTTP server
 const server = http.createServer(app);
+
+// Configure server timeouts and limits
+server.timeout = 30000;
+server.keepAliveTimeout = 65000;
+server.maxHeadersCount = 100;
+server.maxConnections = parseInt(process.env.MAX_CONNECTIONS || '1000', 10);
 
 // Configure middleware
 configureMiddleware(app);
 
 // Mount API routes
-app.use('/api/v1', router);
+app.use('/api', routes);
 
 // Health check endpoint
 app.get('/health', (req: Request, res: Response) => {
@@ -167,7 +175,7 @@ const serviceLogger = winston.createLogger({
     transports: [new winston.transports.Console()]
 });
 
-// Initialize services with logger
+// Initialize services
 const metricsCollector = new MetricsCollector();
 const voiceService = new VoiceService(serviceLogger);
 const studySessionManager = new StudySessionManager();
@@ -195,9 +203,15 @@ const handleUncaughtErrors = async (error: Error): Promise<void> => {
 
     // Attempt graceful shutdown
     await wsManager.cleanup();
-    server.close(() => {
-      process.exit(1);
-    });
+    
+    // Only try to close server if it's running
+    if (server.listening) {
+      await new Promise<void>((resolve) => {
+        server.close(() => resolve());
+      });
+    }
+    
+    process.exit(1);
   } catch (shutdownError) {
     logger.error('Error during shutdown:', shutdownError);
     process.exit(1);
@@ -209,44 +223,6 @@ process.on('unhandledRejection', (reason) => {
   handleUncaughtErrors(reason as Error);
 });
 
-// Start server with better error handling
-const startServer = async (port: number, retries = 3): Promise<void> => {
-  try {
-    await new Promise<void>((resolve, reject) => {
-      server.listen(port, () => {
-        logger.info(`Server started on port ${port} in ${process.env.NODE_ENV} mode`);
-        resolve();
-      }).on('error', async (error: NodeJS.ErrnoException) => {
-        if (error.code === 'EADDRINUSE') {
-          if (retries > 0) {
-            logger.warn(`Port ${port} is in use, trying alternative port ${port + 1}`);
-            await startServer(port + 1, retries - 1);
-            resolve();
-          } else {
-            logger.error(`No available ports found after ${retries} attempts`);
-            reject(error);
-          }
-        } else {
-          reject(error);
-        }
-      });
-    });
-  } catch (error) {
-    logger.error('Failed to start server:', error);
-    process.exit(1);
-  }
-};
-
-// Initialize server
-const PORT = parseInt(process.env.PORT || '4000', 10);
-startServer(PORT).catch(async (error) => {
-  logger.error('Server startup failed:', error);
-  try {
-    await wsManager.cleanup();
-  } catch (cleanupError) {
-    logger.error('Cleanup failed during error handling', { error: cleanupError });
-  }
-  process.exit(1);
-});
-
+// Export configured server and manager for use in server.ts
+export { server, wsManager };
 export default app;

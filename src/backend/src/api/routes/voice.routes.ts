@@ -13,6 +13,11 @@ import { UserRole } from '../../constants/userRoles';
 import rateLimit from 'express-rate-limit'; // ^6.9.0
 import compression from 'compression'; // ^1.7.4
 import helmet from 'helmet'; // ^7.0.0
+import winston from 'winston';
+import { VoiceService } from '../../services/VoiceService';
+import { Redis } from 'ioredis';
+import express from 'express';
+import { validateVoiceRequest } from '../validators/voice.validator';
 
 // Rate limiting configurations
 const VOICE_PROCESS_LIMIT = {
@@ -27,99 +32,108 @@ const VOICE_SETTINGS_LIMIT = {
     message: 'Too many settings update requests, please try again later'
 };
 
-/**
- * Creates and configures voice processing routes with comprehensive security
- * and performance optimizations
- * @param voiceController - Initialized voice controller instance
- * @returns Configured Express router for voice endpoints
- */
-export const createVoiceRouter = (voiceController: VoiceController): Router => {
-    const router = Router();
+// Create the router instance
+export const voiceRouter = Router();
 
-    // Apply security headers
-    router.use(helmet({
-        contentSecurityPolicy: {
-            directives: {
-                defaultSrc: ["'self'"],
-                mediaSrc: ["'self'", "blob:"],
-                scriptSrc: ["'self'"],
-                objectSrc: ["'none'"],
-                upgradeInsecureRequests: []
-            }
-        },
-        crossOriginEmbedderPolicy: true,
-        crossOriginOpenerPolicy: { policy: "same-origin" },
-        crossOriginResourcePolicy: { policy: "same-origin" },
-        dnsPrefetchControl: { allow: false },
-        frameguard: { action: "deny" },
-        hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
-        ieNoOpen: true,
-        noSniff: true,
-        permittedCrossDomainPolicies: { permittedPolicies: "none" },
-        referrerPolicy: { policy: "strict-origin-when-cross-origin" },
-        xssFilter: true
-    }));
-
-    // Voice processing endpoint with enhanced security and performance
-    router.post('/process',
-        authenticate,
-        authorize([UserRole.PRO_USER, UserRole.POWER_USER]),
-        rateLimit(VOICE_PROCESS_LIMIT),
-        compression({ level: 6 }),
-        createValidationMiddleware(voiceInputSchema, {
-            stripUnknown: true,
-            abortEarly: false,
-            sanitize: true,
-            enableCache: true,
-            validationTimeout: 3000,
-            securityLogging: true
+// Initialize controller
+const voiceController = new VoiceController(
+    new VoiceService(winston.createLogger({
+        level: 'info',
+        format: winston.format.json(),
+        transports: [new winston.transports.Console()]
+    })),
+    {
+        logger: winston.createLogger({
+            level: 'info',
+            format: winston.format.json(),
+            transports: [new winston.transports.Console()]
         }),
-        async (req, res, next) => {
-            try {
-                await voiceController.processVoiceInput(req, res);
-            } catch (error) {
-                next(error);
-            }
+        redis: new Redis(process.env.REDIS_URL || 'redis://cache:6379')
+    }
+);
+
+// Apply security headers
+voiceRouter.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            mediaSrc: ["'self'", "blob:"],
+            scriptSrc: ["'self'"],
+            objectSrc: ["'none'"],
+            upgradeInsecureRequests: []
         }
-    );
+    },
+    crossOriginEmbedderPolicy: true,
+    crossOriginOpenerPolicy: { policy: "same-origin" },
+    crossOriginResourcePolicy: { policy: "same-origin" },
+    dnsPrefetchControl: { allow: false },
+    frameguard: { action: "deny" },
+    hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
+    ieNoOpen: true,
+    noSniff: true,
+    permittedCrossDomainPolicies: { permittedPolicies: "none" },
+    referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+    xssFilter: true
+}));
 
-    // Voice settings update endpoint with validation and rate limiting
-    router.put('/settings',
-        authenticate,
-        authorize([UserRole.PRO_USER, UserRole.POWER_USER]),
-        rateLimit(VOICE_SETTINGS_LIMIT),
-        createValidationMiddleware(voiceSettingsSchema, {
-            stripUnknown: true,
-            abortEarly: false,
-            sanitize: true,
-            enableCache: true
-        }),
-        async (req, res, next) => {
-            try {
-                await voiceController.updateVoiceSettings(req, res);
-            } catch (error) {
-                next(error);
+// Add body parsing middleware
+voiceRouter.use(express.json());
+voiceRouter.use(express.urlencoded({ extended: true }));
+
+// Voice processing endpoint
+voiceRouter.post('/process',
+    rateLimit(VOICE_PROCESS_LIMIT),
+    compression({ level: 6 }),
+    validateVoiceRequest,
+    async (req, res, next) => {
+        try {
+            console.log('Received request:', {
+                contentType: req.headers['content-type'],
+                bodyType: typeof req.body,
+                body: req.body
+            });
+
+            // Add validation before processing
+            if (!req.body || !req.body.studySessionId) {
+                return res.status(400).json({
+                    error: 'Invalid request',
+                    message: 'Missing required fields'
+                });
             }
+
+            await voiceController.processVoice(req, res);
+        } catch (error) {
+            console.error('Route error:', error);
+            next(error);
         }
-    );
+    }
+);
 
-    // Voice feature availability check with caching
-    router.get('/availability',
-        authenticate,
-        (req, res, next) => {
-            res.set('Cache-Control', 'private, max-age=300, must-revalidate');
-            next();
-        },
-        async (req, res, next) => {
-            try {
-                await voiceController.checkVoiceAvailability(req, res);
-            } catch (error) {
-                next(error);
-            }
+// Voice settings endpoint
+voiceRouter.get('/settings',
+    async (req, res, next) => {
+        try {
+            await voiceController.getVoiceSettings(req, res);
+        } catch (error) {
+            next(error);
         }
-    );
+    }
+);
 
-    return router;
-};
+// Voice feature availability check with caching
+voiceRouter.get('/availability',
+    authenticate,
+    (req, res, next) => {
+        res.set('Cache-Control', 'private, max-age=300, must-revalidate');
+        next();
+    },
+    async (req, res, next) => {
+        try {
+            await voiceController.checkVoiceAvailability(req, res);
+        } catch (error) {
+            next(error);
+        }
+    }
+);
 
-export default createVoiceRouter;
+export default voiceRouter;

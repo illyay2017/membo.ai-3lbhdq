@@ -26,6 +26,7 @@ import Redis from 'ioredis';
 import { ContentProcessor } from '../../core/ai/contentProcessor';
 import { SecurityService } from '../../services/SecurityService';
 import { openai } from '../../config/openai';
+import { voiceRouter } from './voice.routes';
 
 // Initialize main router with strict routing
 const router = Router({ strict: true, caseSensitive: true });
@@ -136,7 +137,7 @@ router.use('/v1/auth', authRouter);
 router.use('/v1/cards', cardsRouter);
 router.use('/v1/content', configureContentRoutes(contentController));
 router.use('/v1/study', initializeStudyRoutes(studyController));
-router.use('/v1/voice', createVoiceRouter(voiceController));
+router.use('/voice', voiceRouter);
 router.use('/v1/users', usersRouter);
 
 // Health check endpoint

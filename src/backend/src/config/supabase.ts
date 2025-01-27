@@ -64,15 +64,23 @@ const createSupabaseClient = (): SupabaseClient => {
     keyLength: supabaseKey?.length || 0
   });
 
+  // Create a simple storage implementation
+  const memoryStorage = (() => {
+    const store = new Map<string, string>();
+    return {
+        getItem: (key: string): string | null => store.get(`_${key}`) || null,
+        setItem: (key: string, value: string): void => { store.set(`_${key}`, value); },
+        removeItem: (key: string): void => { store.delete(`_${key}`); },
+        clear: (): void => { store.clear(); }
+    };
+  })();
+
   const client = createClient(supabaseUrl, supabaseKey, {
     auth: {
       autoRefreshToken: true,
       persistSession: true,
       detectSessionInUrl: true,
-      storage: {
-        type: 'localStorage',
-        keyPrefix: 'membo_'
-      }
+      storage: memoryStorage
     },
     db: {
       schema: 'public',

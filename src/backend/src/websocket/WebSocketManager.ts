@@ -73,7 +73,7 @@ export class WebSocketManager {
     private readonly logger: winston.Logger;
     private readonly activeConnections: Map<string, WebSocket>;
     private readonly connectionPool: ConnectionPool;
-    private readonly metrics: MetricsCollector;
+    private metrics: MetricsCollector;
     private readonly circuitBreaker: CircuitBreaker;
     private readonly rateLimiter: Map<string, number>;
 
@@ -106,7 +106,6 @@ export class WebSocketManager {
         this.voiceHandler = voiceHandler;
         this.activeConnections = new Map();
         this.connectionPool = connectionPool;
-        this.metrics = metrics;
         this.rateLimiter = new Map();
         
         this.circuitBreaker = {
@@ -117,6 +116,7 @@ export class WebSocketManager {
         };
 
         this.initialize();
+        this.initializeMetrics();
     }
 
     /**
@@ -293,5 +293,19 @@ export class WebSocketManager {
             this.logger.error('Error during WebSocket cleanup', { error });
             throw error;
         }
+    }
+
+    private initializeMetrics(): void {
+        this.metrics = {
+            recordGauge: (name: string, value: number) => {
+                this.logger.debug(`Metric ${name}: ${value}`);
+            },
+            incrementCounter: (name: string) => {
+                this.logger.debug(`Increment counter ${name}`);
+            },
+            recordLatency: (name: string, value: number) => {
+                this.logger.debug(`Latency ${name}: ${value}ms`);
+            }
+        };
     }
 }

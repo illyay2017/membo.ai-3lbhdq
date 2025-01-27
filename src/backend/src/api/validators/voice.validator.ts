@@ -6,6 +6,8 @@
 
 import Joi from 'joi'; // ^17.9.0
 import { StudyModes } from '../../constants/studyModes';
+import { Request, Response, NextFunction } from 'express';
+import { z } from 'zod';
 
 /**
  * Supported languages for voice processing
@@ -84,64 +86,10 @@ export const voiceSettingsSchema = Joi.object({
  * Implements security measures and size limitations
  */
 export const voiceInputSchema = Joi.object({
-    audioData: Joi.binary()
-        .encoding('base64')
-        .max(MAX_AUDIO_SIZE)
-        .required()
-        .messages({
-            'binary.max': `Audio data exceeds maximum size of ${MAX_AUDIO_SIZE} bytes`,
-            'binary.base': 'Invalid audio data format',
-            'any.required': 'Audio data is required'
-        }),
-
-    studySessionId: Joi.string()
-        .uuid()
-        .required()
-        .messages({
-            'string.guid': 'Invalid study session ID format',
-            'any.required': 'Study session ID is required'
-        }),
-
-    expectedAnswer: Joi.string()
-        .max(1000)
-        .required()
-        .trim()
-        .messages({
-            'string.max': 'Expected answer exceeds maximum length of 1000 characters',
-            'string.empty': 'Expected answer cannot be empty',
-            'any.required': 'Expected answer is required'
-        }),
-
-    language: Joi.string()
-        .valid(...SUPPORTED_LANGUAGES)
-        .required()
-        .messages({
-            'any.only': 'Unsupported language selection',
-            'any.required': 'Language selection is required'
-        }),
-
-    confidenceThreshold: Joi.number()
-        .min(0)
-        .max(1)
-        .default(0.7)
-        .messages({
-            'number.min': 'Confidence threshold must be between 0 and 1',
-            'number.max': 'Confidence threshold must be between 0 and 1',
-            'number.base': 'Confidence threshold must be a number'
-        }),
-
-    studyMode: Joi.string()
-        .valid(StudyModes.VOICE)
-        .required()
-        .messages({
-            'any.only': 'Invalid study mode for voice input',
-            'any.required': 'Study mode is required'
-        })
-}).options({
-    abortEarly: false,
-    stripUnknown: true,
-    presence: 'required',
-    convert: true
+    audioData: Joi.string().required(),  // base64 encoded audio
+    language: Joi.string().valid('en', 'es', 'fr').required(),
+    studySessionId: Joi.string().required(),
+    expectedAnswer: Joi.string().required()
 });
 
 /**
@@ -162,4 +110,39 @@ export type VoiceInput = {
     language: typeof SUPPORTED_LANGUAGES[number];
     confidenceThreshold?: number;
     studyMode: typeof StudyModes.VOICE;
+};
+
+const voiceRequestSchema = z.object({
+  audioData: z.string()
+    .min(1, "Audio data cannot be empty")
+    .refine((val) => {
+      try {
+        // Verify it's valid base64
+        Buffer.from(val, 'base64');
+        return true;
+      } catch {
+        return false;
+      }
+    }, "Audio data must be valid base64"),
+  language: z.string()
+    .min(2)
+    .max(5),
+  studySessionId: z.string()
+    .min(1),
+  expectedAnswer: z.string()
+    .min(1)
+});
+
+export const validateVoiceRequest = (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const validatedData = voiceRequestSchema.parse(req.body);
+    req.body = validatedData;
+    next();
+  } catch (error) {
+    return res.status(400).json({
+      error: "Invalid request",
+      message: "Missing required fields",
+      details: error
+    });
+  }
 };

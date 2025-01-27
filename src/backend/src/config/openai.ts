@@ -90,17 +90,26 @@ const initializeRateLimiter = (): RateLimiter => {
  * OpenAI client wrapper with enhanced functionality
  */
 export class OpenAIClient {
-  private client: OpenAI;
+  private readonly client: OpenAI;
   private rateLimiter: RateLimiter;
   private logger: pino.Logger;
 
-  constructor(apiKey: string, orgId: string) {
+  constructor(apiKey: string, organization?: string) {
     this.client = new OpenAI({
       apiKey,
-      organization: orgId
+      organization
     });
     this.rateLimiter = initializeRateLimiter();
     this.logger = logger.child({ service: 'OpenAIClient' });
+  }
+
+  public get audio() {
+    return this.client.audio;
+  }
+
+  // Add chat completions access
+  public get chat() {
+    return this.client.chat;
   }
 
   /**
@@ -179,3 +188,11 @@ export class OpenAIClient {
 // Create and export configured OpenAI client instance
 const config = createOpenAIConfig();
 export const openai = new OpenAIClient(config.apiKey, config.organization);
+
+// Export the type of our configured client
+export type ConfiguredOpenAI = OpenAI;
+
+// Export the configured instance
+export const openaiInstance = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});

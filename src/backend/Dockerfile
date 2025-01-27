@@ -34,6 +34,7 @@ RUN npm install -g tsx@4.6.2 typescript@5.3.3 nodemon@3.0.2 && \
     npm cache clean --force && \
     npm install --legacy-peer-deps && \
     npm install reflect-metadata@0.1.13 --save-exact && \
+    npm install tcp-port-used@1.0.2 --save-exact && \
     npm ls reflect-metadata
 
 # Copy source code after installing dependencies
@@ -47,6 +48,9 @@ ENV NODE_ENV=development
 ENV DEBUG=*
 
 CMD ["npm", "run", "dev"]
+
+# Add this to ensure proper cleanup
+STOPSIGNAL SIGTERM
 
 # Production stage
 FROM node:20.10-alpine AS production

@@ -5,14 +5,14 @@ services:
       dockerfile: Dockerfile
       target: development
     ports:
-      - "4001:4000"  # Map container port 4000 to host port 4001
+      - "4001:4000"  # Map host port 4001 to container port 4000
       - "9229:9229"  # Debug port
     volumes:
       - .:/app:delegated
       - /app/node_modules
     environment:
       - NODE_ENV=development
-      - PORT=4000  # Keep internal port as 4000
+      - PORT=4000    # Internal port stays at 4000
       - SUPABASE_URL=${SUPABASE_URL}
       - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
       - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
@@ -50,36 +50,20 @@ services:
     container_name: membo_api
 
   cache:
-    image: redis:7.2.1-alpine
+    image: redis:7.2-alpine
+    container_name: membo_cache
+    command: redis-server --appendonly yes
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
-    command: [
-      "redis-server",
-      "--appendonly", "yes",
-      "--maxmemory", "512mb",
-      "--maxmemory-policy", "allkeys-lru",
-      "--save", "900", "1",
-      "--save", "300", "10",
-      "--save", "60", "10000"
-    ]
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    deploy:
-      resources:
-        limits:
-          cpus: '1'
-          memory: 1G
-        reservations:
-          cpus: '0.25'
-          memory: 256M
     networks:
       - backend
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
 
   prometheus:
     image: prom/prometheus:v2.47.0
@@ -99,6 +83,7 @@ services:
         target: /etc/prometheus/prometheus.yml
     networks:
       - backend
+    container_name: membo_prometheus
 
   grafana:
     image: grafana/grafana:10.1.2
@@ -114,10 +99,11 @@ services:
         condition: service_started
     networks:
       - backend
+    container_name: membo_grafana
 
 volumes:
   redis_data:
-    name: membo_redis_data
+    driver: local
   node_modules:
     name: membo_node_modules
   prometheus_data:

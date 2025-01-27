@@ -7,88 +7,33 @@
 import http from 'node:http';
 import cluster from 'node:cluster';
 import { cpus } from 'node:os';
-import app from './app.js';
+import app, { server, wsManager } from './app.js';
 import { logger } from './config/logger.js';
-import { WebSocketManager } from './websocket/WebSocketManager.js';
-import { StudySessionHandler } from './websocket/handlers/studySessionHandler.js';
-import { VoiceHandler } from './websocket/handlers/voiceHandler.js';
-import { StudySessionManager } from './core/study/studySessionManager.js';
-import { VoiceService } from './services/VoiceService.js';
-import { FSRSAlgorithm } from './core/study/FSRSAlgorithm.js';
-import { CardScheduler } from './core/study/cardScheduler.js';
-import { Card } from './models/Card.js';
 
 // Environment variables with defaults
 const PORT = process.env.PORT || 4000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const SHUTDOWN_TIMEOUT = parseInt(process.env.SHUTDOWN_TIMEOUT || '10000', 10);
-const MAX_CONNECTIONS = parseInt(process.env.MAX_CONNECTIONS || '1000', 10);
 
 /**
- * Initializes and starts the HTTP server with WebSocket support
+ * Starts the server with port checking
  */
-const startServer = async (): Promise<http.Server> => {
-    // Initialize HTTP server with Express app
-    const server = http.createServer(app);
-
-    // Configure server timeouts and limits
-    server.timeout = 30000;
-    server.keepAliveTimeout = 65000;
-    server.maxHeadersCount = 100;
-    server.maxConnections = MAX_CONNECTIONS;
-
-    // Initialize WebSocket handlers
-    const studySessionManager = new StudySessionManager(
-        new FSRSAlgorithm(),
-        new CardScheduler(
-            new FSRSAlgorithm(),
-            new Card()
-        ),
-        null  // Metrics collector will be injected
-    );
-
-    const voiceService = new VoiceService(
-        logger.child({ service: 'VoiceService' }),
-        {
-            maxAudioDuration: 30,
-            confidenceThreshold: 0.7,
-            supportedLanguages: ['en', 'es', 'fr', 'de', 'it', 'pt', 'ja', 'ko', 'zh'],
-            cacheConfig: { ttl: 3600, maxSize: 1000 },
-            retryConfig: { maxAttempts: 3, backoffMs: 1000 }
-        }
-    );
-
-    const studySessionHandler = new StudySessionHandler(
-        studySessionManager,
-        logger.child({ service: 'StudySessionHandler' })
-    );
-
-    const voiceHandler = new VoiceHandler(
-        voiceService,
-        logger.child({ service: 'VoiceHandler' }),
-        null // Metrics collector will be injected
-    );
-
-    // Initialize WebSocket manager
-    new WebSocketManager(
-        server,
-        studySessionHandler,
-        voiceHandler,
-        logger.child({ service: 'WebSocketManager' }),
-        null, // Connection pool will be injected
-        null  // Metrics collector will be injected
-    );
-
-    // Start listening
-    server.listen(PORT, () => {
-        logger.info(`Server started on port ${PORT} in ${NODE_ENV} mode`, {
-            port: PORT,
-            environment: NODE_ENV,
-            pid: process.pid
+const startServer = async (port: number): Promise<void> => {
+    try {
+        await new Promise<void>((resolve, reject) => {
+            server.listen(port, () => {
+                logger.info(`Server started on port ${port} in ${NODE_ENV} mode`, {
+                    port,
+                    environment: NODE_ENV,
+                    pid: process.pid
+                });
+                resolve();
+            }).on('error', reject);
         });
-    });
-
-    return server;
+    } catch (error) {
+        logger.error('Failed to start server:', error);
+        throw error;
+    }
 };
 
 /**
@@ -96,40 +41,39 @@ const startServer = async (): Promise<http.Server> => {
  */
 const gracefulShutdown = async (server: http.Server): Promise<void> => {
     logger.info('Initiating graceful shutdown...');
+    
+    try {
+        // Cleanup WebSocket connections
+        await wsManager.cleanup();
+        
+        // Stop accepting new connections
+        await new Promise<void>((resolve, reject) => {
+            server.close((err) => {
+                if (err) reject(err);
+                else resolve();
+            });
+        });
 
-    // Stop accepting new connections
-    server.close(async (error) => {
-        if (error) {
-            logger.error('Error during server close:', error);
-            process.exit(1);
-        }
-
-        try {
-            // Allow existing requests to complete
-            await new Promise(resolve => setTimeout(resolve, SHUTDOWN_TIMEOUT));
-            logger.info('Graceful shutdown completed');
-            process.exit(0);
-        } catch (shutdownError) {
-            logger.error('Error during shutdown:', shutdownError);
-            process.exit(1);
-        }
-    });
+        // Allow existing requests to complete
+        await new Promise(resolve => setTimeout(resolve, SHUTDOWN_TIMEOUT));
+        logger.info('Graceful shutdown completed');
+        process.exit(0);
+    } catch (error) {
+        logger.error('Error during shutdown:', error);
+        process.exit(1);
+    }
 };
 
 /**
  * Sets up process handlers for graceful shutdown and error handling
  */
-const setupProcessHandlers = (server: http.Server): void => {
-    // Handle graceful shutdown signals
+const setupProcessHandlers = (): void => {
     process.on('SIGTERM', () => gracefulShutdown(server));
     process.on('SIGINT', () => gracefulShutdown(server));
-
-    // Handle uncaught errors
     process.on('uncaughtException', (error) => {
         logger.error('Uncaught exception:', error);
         gracefulShutdown(server);
     });
-
     process.on('unhandledRejection', (reason) => {
         logger.error('Unhandled rejection:', reason);
         gracefulShutdown(server);
@@ -138,7 +82,6 @@ const setupProcessHandlers = (server: http.Server): void => {
 
 // Start server based on environment
 if (NODE_ENV === 'production' && cluster.isPrimary) {
-    // Fork workers in production
     const numCPUs = cpus().length;
     logger.info(`Primary ${process.pid} is running`);
 
@@ -152,9 +95,9 @@ if (NODE_ENV === 'production' && cluster.isPrimary) {
     });
 } else {
     // Start single instance for development or worker
-    startServer()
-        .then(server => {
-            setupProcessHandlers(server);
+    startServer(PORT)
+        .then(() => {
+            setupProcessHandlers();
         })
         .catch(error => {
             logger.error('Failed to start server:', error);
