@@ -9,7 +9,7 @@ WORKDIR /app
 COPY package.json ./
 
 # Install dependencies with proper error handling
-RUN pnpm install || (echo "Package installation failed!" && exit 1)
+RUN pnpm install --no-frozen-lockfile || (echo "Package installation failed!" && exit 1)
 
 # Copy source code
 COPY . .
