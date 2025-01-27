@@ -18,14 +18,64 @@ import usersRouter from './users.routes';
 import { ContentController } from '../controllers/ContentController';
 import { StudyController } from '../controllers/StudyController';
 import { ErrorCodes, createErrorDetails } from '../../constants/errorCodes';
+import { ContentService } from '../../services/ContentService';
+import { VoiceService } from '../../services/VoiceService';
+import { StudyService } from '../../services/StudyService';
+import winston from 'winston';
+import Redis from 'ioredis';
+import { ContentProcessor } from '../../core/ai/contentProcessor';
+import { SecurityService } from '../../services/SecurityService';
+import { openai } from '../../config/openai';
+import { voiceRouter } from './voice.routes';
 
 // Initialize main router with strict routing
 const router = Router({ strict: true, caseSensitive: true });
 
-// Initialize controllers
-const contentController = new ContentController();
-const studyController = new StudyController();
-const voiceController = new VoiceController();
+// Initialize dependencies for services
+const redisClient = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
+const contentProcessor = new ContentProcessor(openai);
+const securityService = new SecurityService();
+
+// Initialize services with dependencies
+const contentService = new ContentService(
+    contentProcessor,
+    securityService,
+    redisClient
+);
+const studyService = new StudyService();
+
+// Create logger for voice service
+const voiceLogger = winston.createLogger({
+    level: 'info',
+    format: winston.format.combine(
+        winston.format.timestamp(),
+        winston.format.json()
+    ),
+    transports: [new winston.transports.Console()]
+});
+
+// Initialize services with dependencies
+const voiceService = new VoiceService(voiceLogger, {
+    maxAudioDuration: 60,
+    confidenceThreshold: 0.8,
+    supportedLanguages: ['en', 'es', 'fr'],
+    cacheConfig: {
+        ttl: 3600,
+        maxSize: 1000
+    },
+    retryConfig: {
+        maxAttempts: 3,
+        backoffMs: 1000
+    }
+});
+
+// Initialize controllers with their dependencies
+const contentController = new ContentController(contentService);
+const studyController = new StudyController(studyService);
+const voiceController = new VoiceController(voiceService, {
+    logger: voiceLogger,
+    redis: redisClient
+});
 
 // Apply global security middleware
 router.use(helmet({
@@ -87,7 +137,7 @@ router.use('/v1/auth', authRouter);
 router.use('/v1/cards', cardsRouter);
 router.use('/v1/content', configureContentRoutes(contentController));
 router.use('/v1/study', initializeStudyRoutes(studyController));
-router.use('/v1/voice', createVoiceRouter(voiceController));
+router.use('/voice', voiceRouter);
 router.use('/v1/users', usersRouter);
 
 // Health check endpoint

@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Voice Test Recorder</title>
+    <style>
+        body { font-family: Arial; max-width: 800px; margin: 20px auto; padding: 20px; }
+        button { padding: 10px 20px; margin: 5px; }
+        #status { margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>Voice Test Recorder</h1>
+    <button id="recordButton">Start Recording</button>
+    <button id="stopButton" disabled>Stop Recording</button>
+    <button id="downloadButton" disabled>Download Recording</button>
+    <div id="status">Status: Ready</div>
+
+    <script>
+        let mediaRecorder;
+        let audioChunks = [];
+
+        const recordButton = document.getElementById('recordButton');
+        const stopButton = document.getElementById('stopButton');
+        const downloadButton = document.getElementById('downloadButton');
+        const status = document.getElementById('status');
+
+        recordButton.onclick = async () => {
+            audioChunks = [];
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                
+                mediaRecorder.ondataavailable = (event) => {
+                    audioChunks.push(event.data);
+                };
+
+                mediaRecorder.onstop = () => {
+                    downloadButton.disabled = false;
+                    status.textContent = 'Status: Recording complete';
+                };
+
+                mediaRecorder.start();
+                status.textContent = 'Status: Recording...';
+                recordButton.disabled = true;
+                stopButton.disabled = false;
+            } catch (err) {
+                console.error('Error:', err);
+                status.textContent = 'Status: Error - ' + err.message;
+            }
+        };
+
+        stopButton.onclick = () => {
+            mediaRecorder.stop();
+            recordButton.disabled = false;
+            stopButton.disabled = true;
+        };
+
+        downloadButton.onclick = () => {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+            const audioUrl = URL.createObjectURL(audioBlob);
+            const link = document.createElement('a');
+            link.href = audioUrl;
+            link.download = 'test-recording.wav';
+            link.click();
+        };
+    </script>
+</body>
+</html> 

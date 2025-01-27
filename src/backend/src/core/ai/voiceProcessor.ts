@@ -6,13 +6,13 @@
  */
 
 import { injectable, singleton } from 'tsyringe';
-import { OpenAIApi, createChatCompletion } from '../../config/openai';
+import { openai, ConfiguredOpenAI } from '../../config/openai';
 import { voiceInputSchema } from '../../api/validators/voice.validator';
 import { RateLimiter } from 'limiter'; // ^2.0.0
 import { Redis } from 'redis'; // ^4.6.0
 import winston from 'winston'; // ^3.10.0
-import { Whisper } from '@openai/whisper'; // ^1.0.0
 import crypto from 'crypto';
+import { File } from 'buffer';  // Add this import
 
 // Global configuration for voice processing
 const VOICE_PROCESSING_CONFIG = {
@@ -63,27 +63,29 @@ interface ValidationResult {
 @injectable()
 @singleton()
 export class VoiceProcessor {
-  private readonly whisper: Whisper;
   private readonly rateLimiter: RateLimiter;
-  private readonly audioFingerprinter: crypto.Hash;
 
   constructor(
     private readonly logger: winston.Logger,
-    private readonly openai: OpenAIApi,
+    private readonly openai: ConfiguredOpenAI,
     private readonly cache: Redis,
-    private readonly metrics: any
+    private readonly metrics?: any  // Make metrics optional
   ) {
-    this.whisper = new Whisper({
-      model: VOICE_PROCESSING_CONFIG.whisperModel,
-      sampleRate: VOICE_PROCESSING_CONFIG.sampleRate
+    if (!cache) {
+      throw new Error('Redis cache instance is required');
+    }
+
+    // Log OpenAI instance details
+    this.logger.info('VoiceProcessor initialized', {
+      hasOpenAI: !!this.openai,
+      hasAudioAPI: !!(this.openai?.audio?.transcriptions),
+      openAIType: typeof this.openai
     });
 
     this.rateLimiter = new RateLimiter({
       tokensPerInterval: RATE_LIMIT_CONFIG.maxRequests,
       interval: RATE_LIMIT_CONFIG.windowMs
     });
-
-    this.audioFingerprinter = crypto.createHash('sha256');
   }
 
   /**
@@ -102,8 +104,28 @@ export class VoiceProcessor {
     const startTime = Date.now();
 
     try {
+      this.logger.debug('Processing voice with OpenAI', {
+        hasOpenAI: !!this.openai,
+        hasAudioAPI: !!(this.openai?.audio?.transcriptions),
+        audioSize: audioData.length,
+        language
+      });
+
+      // Create a File object from the buffer
+      const audioFile = new File(
+        [audioData],
+        'audio.wav',
+        { type: 'audio/wav' }
+      );
+
       // Validate input parameters
-      await voiceInputSchema.validateAsync({ audioData, language });
+      if (!Buffer.isBuffer(audioData)) {
+        throw new Error('Audio data must be a Buffer');
+      }
+
+      if (!SUPPORTED_LANGUAGES.includes(language as any)) {
+        throw new Error('Unsupported language');
+      }
 
       // Check rate limit
       if (!await this.rateLimiter.tryRemoveTokens(1)) {
@@ -122,10 +144,17 @@ export class VoiceProcessor {
       // Preprocess audio for optimal quality
       const processedAudio = await this.preprocessAudio(audioData);
 
-      // Process with Whisper model
-      const transcriptionResult = await this.whisper.transcribe(processedAudio, {
+      // Process with OpenAI's Whisper model
+      const transcriptionResult = await this.openai.audio.transcriptions.create({
+        file: audioFile,
+        model: VOICE_PROCESSING_CONFIG.whisperModel,
         language: SUPPORTED_LANGUAGES.includes(language as any) ? language : 'en',
-        task: 'transcribe'
+        response_format: 'json'
+      });
+
+      this.logger.debug('OpenAI transcription completed', {
+        success: !!transcriptionResult,
+        responseType: typeof transcriptionResult
       });
 
       // Calculate confidence score
@@ -145,18 +174,25 @@ export class VoiceProcessor {
         JSON.stringify(result)
       );
 
-      // Record metrics
-      this.metrics.recordVoiceProcessing({
-        userId,
-        duration: result.processingTime,
-        confidence: result.confidence,
-        language
-      });
+      // Record metrics if available
+      if (this.metrics) {  // Simple null check
+        try {
+          this.metrics.recordVoiceProcessing?.({
+            userId,
+            duration: result.processingTime,
+            confidence: result.confidence,
+            language
+          });
+        } catch (error) {
+          // Log but don't fail if metrics recording fails
+          this.logger.warn('Failed to record metrics:', error);
+        }
+      }
 
       return result;
 
     } catch (error) {
-      this.logger.error('Voice processing failed', {
+      this.logger.error('Voice processing failed:', {
         error: error.message,
         userId,
         duration: Date.now() - startTime
@@ -225,13 +261,13 @@ export class VoiceProcessor {
   }
 
   /**
-   * Generates unique fingerprint for audio data
-   * @private
+   * Generates a unique fingerprint for audio data
    */
   private generateAudioFingerprint(audioData: Buffer): string {
-    return this.audioFingerprinter
-      .update(audioData)
-      .digest('hex');
+    // Create a new hash instance each time
+    const hasher = crypto.createHash('sha256');
+    hasher.update(audioData);
+    return hasher.digest('hex');
   }
 
   /**
@@ -278,23 +314,38 @@ export class VoiceProcessor {
     text2: string,
     language: string
   ): Promise<number> {
-    const response = await this.openai.createChatCompletion({
-      model: 'gpt-4',
-      messages: [
-        {
-          role: 'system',
-          content: 'Calculate semantic similarity between two texts (0-1)'
-        },
-        {
-          role: 'user',
-          content: `Compare: "${text1}" and "${text2}" in ${language}`
-        }
-      ],
-      temperature: 0.1,
-      max_tokens: 50
-    });
+    try {
+      const response = await this.openai.chat.completions.create({
+        model: 'gpt-4',
+        messages: [
+          {
+            role: 'system',
+            content: 'Calculate semantic similarity between two texts (0-1)'
+          },
+          {
+            role: 'user',
+            content: `Compare: "${text1}" and "${text2}" in ${language}`
+          }
+        ],
+        temperature: 0.1,
+        max_tokens: 50
+      });
 
-    return parseFloat(response.data.choices[0].message?.content || '0');
+      // Add null checks and logging
+      this.logger.debug('Similarity calculation response:', {
+        hasResponse: !!response,
+        hasChoices: !!(response?.choices),
+        firstChoice: response?.choices?.[0]
+      });
+
+      // Safely access the response
+      const similarityText = response?.choices?.[0]?.message?.content || '0';
+      return parseFloat(similarityText) || 0;
+
+    } catch (error) {
+      this.logger.error('Similarity calculation failed:', error);
+      return 0; // Return 0 similarity on error
+    }
   }
 
   /**

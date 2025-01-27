@@ -8,6 +8,7 @@ import WebSocket from 'ws'; // ^8.x
 import winston from 'winston'; // ^3.10.0
 import { VoiceService } from '../../services/VoiceService';
 import { StudyModes } from '../../constants/studyModes';
+import { MetricsCollector } from '../../core/metrics/MetricsCollector';
 
 // WebSocket event constants
 const WS_VOICE_EVENTS = {
@@ -64,9 +65,16 @@ export class VoiceHandler {
   private readonly retryCount: Map<string, number>;
 
   constructor(
-    voiceService: VoiceService,
-    logger: winston.Logger,
-    private readonly metricsCollector: any
+    private readonly voiceService: VoiceService = new VoiceService(),
+    private readonly logger: winston.Logger = winston.createLogger({
+        level: 'info',
+        format: winston.format.combine(
+            winston.format.timestamp(),
+            winston.format.json()
+        ),
+        transports: [new winston.transports.Console()]
+    }),
+    private readonly metricsCollector: MetricsCollector = new MetricsCollector()
   ) {
     this.voiceService = voiceService;
     this.logger = logger.child({ service: 'VoiceHandler' });

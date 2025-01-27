@@ -4,7 +4,7 @@
  * @version 1.0.0
  */
 
-import bcrypt from 'bcrypt'; // v5.1.1
+import bcrypt from 'bcryptjs'; // v5.1.1
 import rateLimit from 'express-rate-limit'; // v6.7.0
 import winston from 'winston'; // v3.8.2
 import { IUser, IUserPreferences } from '../interfaces/IUser';

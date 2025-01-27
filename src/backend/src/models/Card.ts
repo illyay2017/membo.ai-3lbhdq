@@ -4,10 +4,11 @@
  * @version 1.0.0
  */
 
-import { createClient, SupabaseClient, RealtimeSubscription } from '@supabase/supabase-js'; // v2.x
+import { SupabaseClient, RealtimeSubscription } from '@supabase/supabase-js';
 import { ICard, ICardContent, ContentType } from '../interfaces/ICard';
 import { StudyModes, StudyModeConfig } from '../constants/studyModes';
 import { calculateNextReview, updateCardState, FSRS_PARAMETERS } from '../utils/fsrs';
+import supabase from '../config/supabase';
 
 /**
  * Enhanced database model class for flashcard operations with comprehensive
@@ -15,14 +16,9 @@ import { calculateNextReview, updateCardState, FSRS_PARAMETERS } from '../utils/
  */
 export class Card {
     private readonly tableName: string = 'cards';
-    private readonly supabase: SupabaseClient;
     private readonly subscriptions: Map<string, RealtimeSubscription>;
 
     constructor() {
-        this.supabase = createClient(
-            process.env.SUPABASE_URL!,
-            process.env.SUPABASE_SERVICE_KEY!
-        );
         this.subscriptions = new Map();
     }
 
@@ -61,7 +57,7 @@ export class Card {
         };
 
         // Insert card with enhanced error handling
-        const { data, error } = await this.supabase
+        const { data, error } = await supabase
             .from(this.tableName)
             .insert(newCard)
             .select()
@@ -87,7 +83,7 @@ export class Card {
         rating: number,
         userTier: string
     ): Promise<ICard> {
-        const { data: card, error: fetchError } = await this.supabase
+        const { data: card, error: fetchError } = await supabase
             .from(this.tableName)
             .select()
             .eq('id', cardId)
@@ -99,7 +95,7 @@ export class Card {
         const updatedFsrsData = updateCardState(card as ICard, rating);
         const nextReview = calculateNextReview(card as ICard, rating);
 
-        const { data: updatedCard, error: updateError } = await this.supabase
+        const { data: updatedCard, error: updateError } = await supabase
             .from(this.tableName)
             .update({
                 fsrsData: updatedFsrsData,
@@ -131,7 +127,7 @@ export class Card {
         const modeConfig = StudyModeConfig[mode];
 
         // Enhanced query with tier-specific limits
-        const { data: cards, error } = await this.supabase
+        const { data: cards, error } = await supabase
             .from(this.tableName)
             .select()
             .eq('userId', userId)
@@ -158,7 +154,7 @@ export class Card {
      * @param userId User identifier
      */
     private subscribeToCardUpdates(cardId: string, userId: string): void {
-        const subscription = this.supabase
+        const subscription = supabase
             .channel(`card-${cardId}`)
             .on(
                 'postgres_changes',
@@ -196,7 +192,7 @@ export class Card {
      * @returns Card data
      */
     async findById(cardId: string): Promise<ICard> {
-        const { data, error } = await this.supabase
+        const { data, error } = await supabase
             .from(this.tableName)
             .select()
             .eq('id', cardId)
@@ -212,7 +208,7 @@ export class Card {
      * @returns Array of user's cards
      */
     async findByUserId(userId: string): Promise<ICard[]> {
-        const { data, error } = await this.supabase
+        const { data, error } = await supabase
             .from(this.tableName)
             .select()
             .eq('userId', userId)
@@ -220,5 +216,14 @@ export class Card {
 
         if (error) throw new Error(`Failed to fetch user cards: ${error.message}`);
         return data as ICard[];
+    }
+
+    async delete(cardId: string): Promise<void> {
+        const { error } = await supabase
+            .from(this.tableName)
+            .delete()
+            .eq('id', cardId);
+
+        if (error) throw new Error(`Failed to delete card: ${error.message}`);
     }
 }

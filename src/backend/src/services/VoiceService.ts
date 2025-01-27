@@ -9,8 +9,10 @@ import winston from 'winston'; // ^3.10.0
 import { VoiceProcessor } from '../core/ai/voiceProcessor';
 import { IStudySession } from '../interfaces/IStudySession';
 import { openai } from '../config/openai';
-import { LRUCache } from 'lru-cache'; // ^9.0.0
+import { LRUCache } from 'lru-cache';
 import { StudyModes } from '../constants/studyModes';
+import { injectable } from 'tsyringe';
+import { redisManager } from '../config/redis';
 
 /**
  * Interface for voice processing metrics
@@ -39,28 +41,52 @@ interface VoiceServiceConfig {
   };
 }
 
-/**
- * Enterprise-grade voice service for handling voice-based study interactions
- */
+@injectable()
 export class VoiceService {
   private readonly logger: winston.Logger;
   private readonly voiceProcessor: VoiceProcessor;
   private readonly cache: LRUCache<string, any>;
   private readonly config: VoiceServiceConfig;
 
-  constructor(logger: winston.Logger, config: VoiceServiceConfig) {
+  constructor(
+    logger: winston.Logger = winston.createLogger({
+      level: 'info',
+      format: winston.format.combine(
+        winston.format.timestamp(),
+        winston.format.json()
+      ),
+      transports: [new winston.transports.Console()]
+    }),
+    config: VoiceServiceConfig = {  // Add back default config
+      maxAudioDuration: 60,
+      confidenceThreshold: 0.8,
+      supportedLanguages: ['en', 'es', 'fr'],
+      cacheConfig: {
+        ttl: 3600,
+        maxSize: 1000
+      },
+      retryConfig: {
+        maxAttempts: 3,
+        backoffMs: 1000
+      }
+    }
+  ) {
     this.logger = logger.child({ service: 'VoiceService' });
+    
+    // Get Redis client from manager
+    const redis = redisManager.client;
+    
     this.voiceProcessor = new VoiceProcessor(
       this.logger,
       openai,
-      null, // Redis instance will be injected
-      null  // Metrics instance will be injected
+      redis,
+      null
     );
     
-    this.config = config;
+    this.config = config;  // Store the config
     this.cache = new LRUCache({
       max: config.cacheConfig.maxSize,
-      ttl: config.cacheConfig.ttl * 1000, // Convert to milliseconds
+      ttl: config.cacheConfig.ttl * 1000,
       updateAgeOnGet: true
     });
 
@@ -335,5 +361,59 @@ export class VoiceService {
 
   private async handleGeneralError(sessionId: string, error: Error): Promise<void> {
     // Implementation for general error handling
+  }
+
+  /**
+   * Process voice input and return analysis results
+   */
+  public async processVoice(
+    audioData: string,
+    language: string,
+    studySessionId: string,
+    expectedAnswer: string
+  ): Promise<any> {
+    try {
+      this.logger.info('Processing voice input', {
+        language,
+        studySessionId,
+        expectedAnswer,
+        audioDataLength: audioData?.length
+      });
+
+      // Validate and convert base64 to buffer
+      let audioBuffer: Buffer;
+      try {
+        audioBuffer = Buffer.from(audioData, 'base64');
+      } catch (error) {
+        throw new Error('Invalid base64 audio data');
+      }
+
+      // Process voice using VoiceProcessor
+      const result = await this.voiceProcessor.processVoiceInput(
+        audioBuffer,
+        language,
+        studySessionId
+      );
+
+      // Validate the answer
+      const validation = await this.voiceProcessor.validateAnswer(
+        result.text,
+        expectedAnswer,
+        language
+      );
+
+      return {
+        success: true,
+        confidence: validation.confidence,
+        transcription: result.text,
+        matches: validation.isCorrect,
+        similarity: validation.similarity,
+        processingTime: result.processingTime + validation.processingTime
+      };
+
+    } catch (error) {
+      this.logger.error('Voice processing failed:', error);
+      throw error;
+    }
   }
 }

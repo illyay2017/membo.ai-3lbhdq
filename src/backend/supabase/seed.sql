@@ -1,68 +1,128 @@
 -- Development seed data for membo.ai
 -- Version: 1.0.0
 
--- Global constants
-\set DEFAULT_PASSWORD_HASH '''$2b$10$DEV_ENVIRONMENT_HASH'''
-
 -- Clean existing data
-TRUNCATE users, content, cards, study_sessions, study_metrics, performance_analytics, engagement_metrics CASCADE;
+TRUNCATE content, cards, study_sessions, study_metrics, performance_analytics, engagement_metrics CASCADE;
 
 -- Seed Users
-INSERT INTO users (
-    id,
-    email,
-    password_hash,
-    first_name,
-    last_name,
-    role,
-    preferences,
-    is_email_verified,
-    created_at
-) VALUES 
-(
-    'f47ac10b-58cc-4372-a567-0e02b2c3d479',
-    'free@membo.ai',
-    :DEFAULT_PASSWORD_HASH,
-    'Free',
-    'User',
-    'FREE_USER',
-    '{"studyMode": "STANDARD", "voiceEnabled": false, "dailyGoal": 20, "emailNotifications": true, "theme": "light", "language": "en"}'::jsonb,
-    true,
-    NOW() - INTERVAL '30 days'
-),
-(
-    'f47ac10b-58cc-4372-a567-0e02b2c3d480',
-    'pro@membo.ai',
-    :DEFAULT_PASSWORD_HASH,
-    'Pro',
-    'User',
-    'PRO_USER',
-    '{"studyMode": "VOICE", "voiceEnabled": true, "dailyGoal": 50, "emailNotifications": true, "theme": "dark", "language": "es"}'::jsonb,
-    true,
-    NOW() - INTERVAL '60 days'
-),
-(
-    'f47ac10b-58cc-4372-a567-0e02b2c3d481',
-    'power@membo.ai',
-    :DEFAULT_PASSWORD_HASH,
-    'Power',
-    'User',
-    'POWER_USER',
-    '{"studyMode": "QUIZ", "voiceEnabled": true, "dailyGoal": 100, "emailNotifications": false, "theme": "system", "language": "fr"}'::jsonb,
-    true,
-    NOW() - INTERVAL '90 days'
-),
-(
-    'f47ac10b-58cc-4372-a567-0e02b2c3d482',
-    'admin@membo.ai',
-    :DEFAULT_PASSWORD_HASH,
-    'System',
-    'Admin',
-    'SYSTEM_ADMIN',
-    '{"studyMode": "STANDARD", "voiceEnabled": true, "dailyGoal": 30, "emailNotifications": true, "theme": "light", "language": "en"}'::jsonb,
-    true,
-    NOW() - INTERVAL '120 days'
-);
+DO $$
+DECLARE
+    default_password_hash TEXT := '$2b$10$DEV_ENVIRONMENT_HASH';
+BEGIN
+    INSERT INTO auth.users (
+        id,
+        email,
+        encrypted_password,
+        email_confirmed_at,
+        created_at,
+        updated_at,
+        raw_app_meta_data,
+        raw_user_meta_data
+    ) VALUES 
+    (
+        'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+        'free@membo.ai',
+        default_password_hash,
+        NOW(),
+        NOW() - INTERVAL '30 days',
+        NOW(),
+        jsonb_build_object(
+            'role', 'FREE_USER',
+            'preferences', jsonb_build_object(
+                'studyMode', 'STANDARD',
+                'voiceEnabled', false,
+                'dailyGoal', 20,
+                'theme', 'light',
+                'language', 'en',
+                'notifications', jsonb_build_object(
+                    'email', true,
+                    'push', true,
+                    'studyReminders', true
+                )
+            )
+        ),
+        jsonb_build_object(
+            'first_name', 'Free',
+            'last_name', 'User'
+        )
+    ),
+    (
+        'f47ac10b-58cc-4372-a567-0e02b2c3d480',
+        'pro@membo.ai',
+        default_password_hash,
+        NOW(),
+        NOW() - INTERVAL '60 days',
+        NOW(),
+        jsonb_build_object(
+            'role', 'PRO_USER',
+            'preferences', jsonb_build_object(
+                'studyMode', 'VOICE',
+                'voiceEnabled', true,
+                'dailyGoal', 50,
+                'theme', 'dark',
+                'language', 'es',
+                'notifications', jsonb_build_object(
+                    'email', true,
+                    'push', true,
+                    'studyReminders', true
+                )
+            )
+        ),
+        jsonb_build_object(
+            'first_name', 'Pro',
+            'last_name', 'User'
+        )
+    ),
+    (
+        'f47ac10b-58cc-4372-a567-0e02b2c3d481',
+        'power@membo.ai',
+        default_password_hash,
+        NOW(),
+        NOW() - INTERVAL '90 days',
+        NOW(),
+        jsonb_build_object(
+            'role', 'POWER_USER',
+            'preferences', jsonb_build_object(
+                'studyMode', 'QUIZ',
+                'voiceEnabled', true,
+                'dailyGoal', 100,
+                'theme', 'system',
+                'language', 'fr',
+                'notifications', jsonb_build_object(
+                    'email', true,
+                    'push', true,
+                    'studyReminders', true
+                )
+            )
+        ),
+        jsonb_build_object(
+            'first_name', 'Power',
+            'last_name', 'User'
+        )
+    ),
+    (
+        'f47ac10b-58cc-4372-a567-0e02b2c3d482',
+        'admin@membo.ai',
+        default_password_hash,
+        NOW(),
+        NOW() - INTERVAL '120 days',
+        NOW(),
+        jsonb_build_object(
+            'role', 'SYSTEM_ADMIN',
+            'preferences', jsonb_build_object(
+                'studyMode', 'STANDARD',
+                'voiceEnabled', true,
+                'dailyGoal', 30,
+                'theme', 'light',
+                'language', 'en'
+            )
+        ),
+        jsonb_build_object(
+            'first_name', 'System',
+            'last_name', 'Admin'
+        )
+    );
+END $$;
 
 -- Seed Content
 INSERT INTO content (
@@ -71,7 +131,7 @@ INSERT INTO content (
     content,
     metadata,
     status,
-    created_at,
+    captured_at,
     processed_at
 ) VALUES
 (
@@ -155,31 +215,31 @@ INSERT INTO study_sessions (
     cards_studied
 ) VALUES
 (
-    's47ac10b-58cc-4372-a567-0e02b2c3d479',
+    '847ac10b-58cc-4372-a567-0e02b2c3d479',
     'f47ac10b-58cc-4372-a567-0e02b2c3d479',
     'STANDARD',
     NOW() - INTERVAL '20 days',
     NOW() - INTERVAL '20 days' + INTERVAL '30 minutes',
     '{"correct": 8, "incorrect": 2, "skipped": 1, "average_response_time": 3.5}'::jsonb,
-    11
+    ARRAY['d47ac10b-58cc-4372-a567-0e02b2c3d479'::uuid]
 ),
 (
-    's47ac10b-58cc-4372-a567-0e02b2c3d480',
+    '857ac10b-58cc-4372-a567-0e02b2c3d480',
     'f47ac10b-58cc-4372-a567-0e02b2c3d480',
     'VOICE',
     NOW() - INTERVAL '15 days',
     NOW() - INTERVAL '15 days' + INTERVAL '45 minutes',
     '{"correct": 15, "incorrect": 5, "skipped": 0, "average_response_time": 5.2, "voice_accuracy": 0.92}'::jsonb,
-    20
+    ARRAY['d47ac10b-58cc-4372-a567-0e02b2c3d480'::uuid]
 ),
 (
-    's47ac10b-58cc-4372-a567-0e02b2c3d481',
+    '867ac10b-58cc-4372-a567-0e02b2c3d481',
     'f47ac10b-58cc-4372-a567-0e02b2c3d481',
     'QUIZ',
     NOW() - INTERVAL '10 days',
     NOW() - INTERVAL '10 days' + INTERVAL '60 minutes',
     '{"correct": 25, "incorrect": 3, "skipped": 2, "average_response_time": 4.1, "quiz_score": 0.89}'::jsonb,
-    30
+    ARRAY['d47ac10b-58cc-4372-a567-0e02b2c3d481'::uuid]
 );
 
 -- Seed Analytics Data
@@ -194,21 +254,21 @@ INSERT INTO study_metrics (
 (
     'f47ac10b-58cc-4372-a567-0e02b2c3d479',
     CURRENT_DATE - INTERVAL '7 days',
-    3600, -- 1 hour in seconds
+    INTERVAL '1 hour',
     30,
     0.85
 ),
 (
     'f47ac10b-58cc-4372-a567-0e02b2c3d480',
     CURRENT_DATE - INTERVAL '7 days',
-    7200, -- 2 hours in seconds
+    INTERVAL '2 hours',
     60,
     0.92
 ),
 (
     'f47ac10b-58cc-4372-a567-0e02b2c3d481',
     CURRENT_DATE - INTERVAL '7 days',
-    10800, -- 3 hours in seconds
+    INTERVAL '3 hours',
     90,
     0.88
 );
@@ -222,19 +282,19 @@ INSERT INTO performance_analytics (
 ) VALUES
 (
     'f47ac10b-58cc-4372-a567-0e02b2c3d479',
-    's47ac10b-58cc-4372-a567-0e02b2c3d479',
+    '847ac10b-58cc-4372-a567-0e02b2c3d479',
     'STANDARD',
     0.75
 ),
 (
     'f47ac10b-58cc-4372-a567-0e02b2c3d480',
-    's47ac10b-58cc-4372-a567-0e02b2c3d480',
+    '857ac10b-58cc-4372-a567-0e02b2c3d480',
     'VOICE',
     0.85
 ),
 (
     'f47ac10b-58cc-4372-a567-0e02b2c3d481',
-    's47ac10b-58cc-4372-a567-0e02b2c3d481',
+    '867ac10b-58cc-4372-a567-0e02b2c3d481',
     'QUIZ',
     0.92
 );

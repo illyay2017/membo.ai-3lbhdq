@@ -53,22 +53,34 @@ const validationCache = new Map<string, { result: ValidationResult; timestamp: n
 
 /**
  * Enhanced schema validation using Joi with caching and detailed error reporting
- * @param schema - Joi schema for validation
  * @param data - Data to validate
+ * @param schemaRules - Schema rules in the format of key-value pairs
  * @param options - Additional validation options
  * @returns Detailed validation result
  */
 export const validateSchema = (
-  schema: Joi.Schema,
   data: unknown,
+  schemaRules: Record<string, string>,
   options?: Joi.ValidationOptions
 ): ValidationResult => {
-  const cacheKey = JSON.stringify({ schema, data });
+  const cacheKey = JSON.stringify({ schema: schemaRules, data });
   const cachedResult = validationCache.get(cacheKey);
 
   if (cachedResult && Date.now() - cachedResult.timestamp < VALIDATION_CACHE_TTL * 1000) {
     return cachedResult.result;
   }
+
+  const schema = Joi.object(Object.entries(schemaRules).reduce((acc, [key, rule]) => ({
+    ...acc,
+    [key]: rule.split('|').reduce((s, r) => {
+      switch (r) {
+        case 'required': return Joi.any().required();
+        case 'string': return Joi.string();
+        case 'object': return Joi.object();
+        default: return s;
+      }
+    }, Joi.any() as Joi.AnySchema)
+  }), {}));
 
   const validationResult = schema.validate(data, {
     abortEarly: false,

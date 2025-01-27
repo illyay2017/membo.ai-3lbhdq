@@ -11,7 +11,19 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js'; // v2.39.0
  * @throws {Error} If any required environment variables are missing or invalid
  */
 const validateEnvironmentVariables = (): void => {
-  const { SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY } = process.env;
+  const { 
+    SUPABASE_URL, 
+    SUPABASE_ANON_KEY, 
+    SUPABASE_SERVICE_ROLE_KEY 
+  } = process.env;
+
+  // Add debug logging
+  console.log('Supabase Environment Variables:', {
+    url: SUPABASE_URL || 'missing',
+    anonKey: SUPABASE_ANON_KEY ? `set (length: ${SUPABASE_ANON_KEY.length})` : 'missing',
+    serviceKey: SUPABASE_SERVICE_ROLE_KEY ? 'set' : 'missing',
+    rawAnonKey: SUPABASE_ANON_KEY || 'missing' // Temporarily log the actual key for debugging
+  });
 
   if (!SUPABASE_URL) {
     throw new Error('SUPABASE_URL environment variable is required');
@@ -24,6 +36,11 @@ const validateEnvironmentVariables = (): void => {
   }
 
   if (!SUPABASE_ANON_KEY || SUPABASE_ANON_KEY.length < 32) {
+    console.error('Invalid SUPABASE_ANON_KEY:', {
+      exists: !!SUPABASE_ANON_KEY,
+      length: SUPABASE_ANON_KEY?.length || 0,
+      value: SUPABASE_ANON_KEY || 'missing'
+    });
     throw new Error('SUPABASE_ANON_KEY must be a valid API key');
   }
 
@@ -40,17 +57,30 @@ const createSupabaseClient = (): SupabaseClient => {
   validateEnvironmentVariables();
 
   const supabaseUrl = process.env.SUPABASE_URL!;
-  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY!;
+  const supabaseKey = process.env.SUPABASE_ANON_KEY!;
 
-  const client = createClient(supabaseUrl, supabaseAnonKey, {
+  console.log('Creating Supabase client with:', {
+    url: supabaseUrl,
+    keyLength: supabaseKey?.length || 0
+  });
+
+  // Create a simple storage implementation
+  const memoryStorage = (() => {
+    const store = new Map<string, string>();
+    return {
+        getItem: (key: string): string | null => store.get(`_${key}`) || null,
+        setItem: (key: string, value: string): void => { store.set(`_${key}`, value); },
+        removeItem: (key: string): void => { store.delete(`_${key}`); },
+        clear: (): void => { store.clear(); }
+    };
+  })();
+
+  const client = createClient(supabaseUrl, supabaseKey, {
     auth: {
       autoRefreshToken: true,
       persistSession: true,
       detectSessionInUrl: true,
-      storage: {
-        type: 'localStorage',
-        keyPrefix: 'membo_'
-      }
+      storage: memoryStorage
     },
     db: {
       schema: 'public',

@@ -1,11 +1,12 @@
 import Redis, { RedisOptions, Cluster } from 'ioredis'; // v5.3.0
 import pino from 'pino'; // v8.16.0
 import { EventEmitter } from 'events';
+import winston from 'winston';
 
 // Global configuration object based on best practices and requirements
 const REDIS_CONFIG = {
   cluster: {
-    enabled: true,
+    enabled: process.env.NODE_ENV !== 'development',
     retryDelayMs: 5000,
     maxRedirections: 16,
     scaleReads: 'slave' as const,
@@ -13,13 +14,12 @@ const REDIS_CONFIG = {
   },
   defaults: {
     ttlSeconds: 900, // 15 minutes default TTL
-    maxMemoryMB: 5120, // 5GB initial allocation
-    keyPrefix: 'membo:',
-    connectionTimeout: 10000,
+    maxConnections: 10,
+    connectTimeout: 10000,
     maxRetriesPerRequest: 3,
     enableReadyCheck: true,
     autoResendUnfulfilledCommands: true,
-    maxLoadingRetryTime: 10000,
+    retryStrategy: (times: number) => Math.min(times * 50, 2000)
   },
   monitoring: {
     healthCheckIntervalMs: 5000,
@@ -51,73 +51,33 @@ interface HealthStatus {
 }
 
 class RedisManager {
-  private client: Redis.Cluster | Redis;
-  private logger: pino.Logger;
+  private client: Redis;
+  private readonly logger: winston.Logger;
   private healthCheckInterval: NodeJS.Timer;
   private retryCounters: Map<string, number>;
   private eventBus: EventEmitter;
   private healthStatus: HealthStatus;
 
   constructor() {
-    this.logger = pino({
-      name: 'redis-manager',
-      level: process.env.LOG_LEVEL || 'info',
+    this.logger = winston.createLogger({
+      level: 'info',
+      format: winston.format.json(),
+      transports: [new winston.transports.Console()]
     });
+
     this.retryCounters = new Map();
     this.eventBus = new EventEmitter();
-    this.initialize();
-  }
 
-  private async initialize(): Promise<void> {
-    try {
-      const redisUrl = process.env.REDIS_URL;
-      if (!redisUrl) {
-        throw new Error('REDIS_URL environment variable is required');
-      }
+    this.client = new Redis({
+      host: 'cache',  // Docker service name
+      port: 6379,
+      maxRetriesPerRequest: REDIS_CONFIG.defaults.maxRetriesPerRequest,
+      retryStrategy: REDIS_CONFIG.defaults.retryStrategy
+    });
 
-      const baseOptions: RedisOptions = {
-        connectTimeout: REDIS_CONFIG.defaults.connectionTimeout,
-        maxRetriesPerRequest: REDIS_CONFIG.defaults.maxRetriesPerRequest,
-        enableReadyCheck: REDIS_CONFIG.defaults.enableReadyCheck,
-        autoResendUnfulfilledCommands: REDIS_CONFIG.defaults.autoResendUnfulfilledCommands,
-        keyPrefix: REDIS_CONFIG.defaults.keyPrefix,
-        tls: REDIS_CONFIG.security.enableTLS ? {
-          rejectUnauthorized: REDIS_CONFIG.security.rejectUnauthorized,
-        } : undefined,
-        retryStrategy: (times: number) => {
-          const delay = REDIS_CONFIG.cluster.clusterRetryStrategy(times);
-          this.logger.warn({ times, delay }, 'Redis connection retry');
-          return delay;
-        },
-      };
-
-      if (REDIS_CONFIG.cluster.enabled) {
-        this.client = new Redis.Cluster([redisUrl], {
-          ...baseOptions,
-          scaleReads: REDIS_CONFIG.cluster.scaleReads,
-          maxRedirections: REDIS_CONFIG.cluster.maxRedirections,
-          clusterRetryStrategy: REDIS_CONFIG.cluster.clusterRetryStrategy,
-        });
-      } else {
-        this.client = new Redis(redisUrl, baseOptions);
-      }
-
-      this.setupEventHandlers();
-      this.startHealthCheck();
-      this.configureMemoryLimits();
-
-      await this.validateConnection();
-      this.logger.info('Redis client initialized successfully');
-    } catch (error) {
-      this.logger.error(error, 'Failed to initialize Redis client');
-      throw error;
-    }
-  }
-
-  private setupEventHandlers(): void {
-    this.client.on('error', (error) => {
-      this.logger.error(error, 'Redis client error');
-      this.eventBus.emit('error', error);
+    this.client.on('error', (err) => {
+      this.logger.error('Redis connection error:', err);
+      this.eventBus.emit('error', err);
     });
 
     this.client.on('connect', () => {
@@ -134,6 +94,41 @@ class RedisManager {
       this.logger.warn('Redis client connection closed');
       this.eventBus.emit('close');
     });
+
+    this.initialize();
+  }
+
+  private async initialize(): Promise<void> {
+    try {
+      await this.validateConnection();
+      this.logger.info('Redis client initialized successfully');
+      this.startHealthCheck();
+      this.configureMemoryLimits();
+    } catch (error) {
+      this.logger.error(error, 'Failed to initialize Redis client');
+      throw error;
+    }
+  }
+
+  private async validateConnection(): Promise<void> {
+    try {
+      await this.client.ping();
+    } catch (error) {
+      this.logger.error(error, 'Redis connection validation failed');
+      throw error;
+    }
+  }
+
+  private async configureMemoryLimits(): Promise<void> {
+    try {
+      // Set a reasonable default memory limit for development
+      const maxMemoryMB = process.env.REDIS_MAX_MEMORY_MB || '512';
+      await this.client.config('SET', 'maxmemory', `${maxMemoryMB}mb`);
+      await this.client.config('SET', 'maxmemory-policy', 'allkeys-lru');
+    } catch (error) {
+      this.logger.error(error, 'Failed to configure memory limits');
+      // Don't throw - this is non-critical for development
+    }
   }
 
   private startHealthCheck(): void {
@@ -157,28 +152,7 @@ class RedisManager {
     }, REDIS_CONFIG.monitoring.healthCheckIntervalMs);
   }
 
-  private async configureMemoryLimits(): Promise<void> {
-    try {
-      await this.client.config('SET', 'maxmemory', `${REDIS_CONFIG.defaults.maxMemoryMB}mb`);
-      await this.client.config('SET', 'maxmemory-policy', 'allkeys-lru');
-    } catch (error) {
-      this.logger.error(error, 'Failed to configure memory limits');
-    }
-  }
-
-  private async validateConnection(): Promise<void> {
-    try {
-      await this.client.ping();
-    } catch (error) {
-      this.logger.error(error, 'Redis connection validation failed');
-      throw error;
-    }
-  }
-
   private async getClusterNodes(): Promise<string[]> {
-    if (this.client instanceof Redis.Cluster) {
-      return this.client.nodes('master').map(node => node.options.host);
-    }
     return [this.client.options.host as string];
   }
 
@@ -280,6 +254,10 @@ class RedisManager {
   public shutdown(): void {
     clearInterval(this.healthCheckInterval);
     this.client.disconnect();
+  }
+
+  public getClient(): Redis {
+    return this.client;
   }
 }
 

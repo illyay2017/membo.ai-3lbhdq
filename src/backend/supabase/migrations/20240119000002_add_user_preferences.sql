@@ -32,7 +32,7 @@ ALTER TABLE users
         AND preferences ? 'theme' 
         AND preferences ? 'language' 
         AND preferences ? 'notifications'
-        AND (preferences->>'studyMode')::text IN ('STANDARD', 'ADVANCED', 'EXPERT')
+        AND (preferences->>'studyMode')::text IN ('STANDARD', 'VOICE', 'QUIZ')
         AND (preferences->>'theme')::text IN ('light', 'dark', 'system')
         AND (preferences->>'language')::text ~ '^[a-z]{2}(-[A-Z]{2})?$'
         AND (preferences->>'dailyGoal')::integer BETWEEN 1 AND 1000

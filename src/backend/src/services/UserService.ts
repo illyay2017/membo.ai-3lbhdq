@@ -4,7 +4,7 @@
  * @version 1.0.0
  */
 
-import bcrypt from 'bcrypt'; // v5.1.1
+import bcrypt from 'bcryptjs'; // v5.1.1
 import winston from 'winston'; // v3.8.2
 import jwt from 'jsonwebtoken'; // v9.0.0
 import { IUser } from '../interfaces/IUser';

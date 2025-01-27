@@ -62,7 +62,8 @@
     "uuid": "^9.0.0",
     "web-speech-api": "latest",
     "zod": "^3.22.4",
-    "zustand": "^4.3.9"
+    "zustand": "^4.3.9",
+    "tsyringe": "^4.6.0"
   },
   "devDependencies": {
     "@axe-core/react": "^4.7.3",

@@ -6,11 +6,12 @@
 
 import express from 'express'; // ^4.18.2
 import { CardController } from '../controllers/CardController';
-import { authenticate, authorize } from '../middlewares/auth.middleware';
+import { authenticate, authorize, AuthenticatedRequest } from '../middlewares/auth.middleware';
 import { validateRequest } from '../middlewares/validation.middleware';
 import { rateLimiter } from '../middlewares/rateLimiter.middleware';
 import { UserRole } from '../../constants/userRoles';
 import { cardValidationSchemas } from '../validators/card.validator';
+import { Response, NextFunction } from 'express';
 
 // Initialize router and controller
 const router = express.Router();
@@ -31,7 +32,14 @@ router.post('/',
         skipFailedRequests: true,
         keyPrefix: 'create-card'
     }),
-    cardController.createCard
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+        try {
+            const card = await cardController.createCard(req, res, next);
+            res.status(201).json(card);
+        } catch (error) {
+            next(error);
+        }
+    }
 );
 
 /**
@@ -44,12 +52,19 @@ router.post('/generate',
     authorize([UserRole.PRO_USER, UserRole.POWER_USER]),
     validateRequest(cardValidationSchemas.createCardSchema),
     rateLimiter({
-        windowMs: 60000, // 1 minute
+        windowMs: 60000,
         max: 50,
         skipFailedRequests: true,
         keyPrefix: 'generate-cards'
     }),
-    cardController.generateCards
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+        try {
+            const cards = await cardController.generateCards(req, res, next);
+            res.status(201).json(cards);
+        } catch (error) {
+            next(error);
+        }
+    }
 );
 
 /**
@@ -66,7 +81,14 @@ router.get('/:id',
         max: 200,
         keyPrefix: 'get-card'
     }),
-    cardController.getCard
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+        try {
+            const card = await cardController.getCard(req, res, next);
+            res.json(card);
+        } catch (error) {
+            next(error);
+        }
+    }
 );
 
 /**
@@ -83,7 +105,14 @@ router.get('/user',
         max: 100,
         keyPrefix: 'list-cards'
     }),
-    cardController.getUserCards
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+        try {
+            const cards = await cardController.getUserCards(req, res, next);
+            res.json(cards);
+        } catch (error) {
+            next(error);
+        }
+    }
 );
 
 /**
@@ -100,7 +129,14 @@ router.get('/due',
         max: 100,
         keyPrefix: 'due-cards'
     }),
-    cardController.getDueCards
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+        try {
+            const cards = await cardController.getDueCards(req, res, next);
+            res.json(cards);
+        } catch (error) {
+            next(error);
+        }
+    }
 );
 
 /**
@@ -118,7 +154,14 @@ router.post('/:id/review',
         skipFailedRequests: true,
         keyPrefix: 'record-review'
     }),
-    cardController.recordReview
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+        try {
+            const card = await cardController.recordReview(req, res, next);
+            res.json(card);
+        } catch (error) {
+            next(error);
+        }
+    }
 );
 
 /**
@@ -136,7 +179,14 @@ router.patch('/:id',
         skipFailedRequests: true,
         keyPrefix: 'update-card'
     }),
-    cardController.updateCard
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+        try {
+            const card = await cardController.updateCard(req, res, next);
+            res.json(card);
+        } catch (error) {
+            next(error);
+        }
+    }
 );
 
 /**
@@ -153,7 +203,13 @@ router.delete('/:id',
         skipFailedRequests: true,
         keyPrefix: 'delete-card'
     }),
-    cardController.deleteCard
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+        try {
+            await cardController.deleteCard(req, res, next);
+        } catch (error) {
+            next(error);
+        }
+    }
 );
 
 /**
@@ -171,7 +227,14 @@ router.post('/bulk',
         skipFailedRequests: true,
         keyPrefix: 'bulk-create'
     }),
-    cardController.bulkCreateCards
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+        try {
+            const cards = await cardController.bulkCreateCards(req, res, next);
+            res.status(201).json(cards);
+        } catch (error) {
+            next(error);
+        }
+    }
 );
 
 export default router;

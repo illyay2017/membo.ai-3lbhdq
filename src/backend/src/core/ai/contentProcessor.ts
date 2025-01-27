@@ -1,7 +1,6 @@
-import { OpenAIApi } from 'openai'; // version: ^4.0.0
+import { OpenAIClient } from '../../config/openai';
 import pino from 'pino'; // version: ^8.0.0
 import { IContent, ContentStatus } from '../../interfaces/IContent';
-import { openai } from '../../config/openai';
 import { CardGenerator } from './cardGenerator';
 import { sanitizeInput, validateSchema } from '../../utils/validation';
 
@@ -55,7 +54,7 @@ class ContentProcessor {
   private cardGenerator: CardGenerator;
 
   constructor(
-    private openaiClient: OpenAIApi,
+    private openaiClient: OpenAIClient,
     private options: ProcessingOptions = {}
   ) {
     this.cardGenerator = new CardGenerator(openaiClient);

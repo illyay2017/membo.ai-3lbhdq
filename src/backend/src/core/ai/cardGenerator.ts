@@ -1,4 +1,5 @@
-import { OpenAIApi } from 'openai'; // version: ^4.0.0
+// import OpenAI from src/config/openai
+
 import Redis from 'ioredis'; // version: ^5.0.0
 import winston from 'winston'; // version: ^3.0.0
 import { ICard, ContentType, ICardContent } from '../../interfaces/ICard';
@@ -6,6 +7,8 @@ import { IContent, ContentStatus } from '../../interfaces/IContent';
 import { StudyModes } from '../../constants/studyModes';
 import { openai, DEFAULT_MODEL, REQUEST_TIMEOUT } from '../../config/openai';
 import { validateSchema } from '../../utils/validation';
+import { injectable } from 'tsyringe';
+import { open } from 'fs';
 
 // Constants for card generation
 const CARD_GENERATION_PROMPT = `Generate comprehensive flashcards from the following content. For each card:
@@ -53,7 +56,7 @@ class CardGenerator {
   private metrics: GenerationMetrics;
 
   constructor(
-    private openaiClient: OpenAIApi,
+    private openaiClient: OpenAIClient,
     private cacheClient: Redis,
     private options: GenerationOptions = {}
   ) {
@@ -106,10 +109,10 @@ class CardGenerator {
       this.metrics.cardCount = cards.length;
       
       return cards;
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Card generation failed', {
         contentId: content.id,
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
         metrics: this.metrics,
       });
       throw error;
@@ -144,8 +147,21 @@ class CardGenerator {
    * Checks content against OpenAI's moderation endpoint
    */
   private async moderateContent(text: string): Promise<void> {
-    const moderation = await this.openaiClient.createModeration({
-      input: text,
+    const moderation = await this.openaiClient.createChatCompletion({
+      model: DEFAULT_MODEL,
+      messages: [
+        {
+          role: 'system',
+          content: CARD_GENERATION_PROMPT,
+        },
+        {
+          role: 'user',
+          content: text,
+        },
+      ],
+      temperature: 0.7,
+      max_tokens: 2048,
+      timeout: API_TIMEOUT,
     });
 
     if (moderation.data.results[0].flagged) {

@@ -67,4 +67,6 @@ export interface IUser {
     isEmailVerified: boolean;
     /** Schema version for handling model updates */
     version: number;
+    /** Timestamp of last user access */
+    lastAccess: Date;
 }

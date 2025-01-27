@@ -2,10 +2,9 @@
 // limiter version: ^2.0.0
 // pino version: ^8.0.0
 
-import { OpenAIApi, Configuration } from 'openai';
+import OpenAI from 'openai';
 import { RateLimiter } from 'limiter';
 import pino from 'pino';
-import type { ProcessEnv } from '../types/environment';
 
 // Global constants for OpenAI configuration
 export const DEFAULT_MODEL = 'gpt-4';
@@ -43,7 +42,7 @@ const validateCredentials = (apiKey: string, orgId: string): boolean => {
   }
 
   // Validate API key format (sk-... format)
-  const apiKeyRegex = /^sk-[A-Za-z0-9]{32,}$/;
+  const apiKeyRegex = /^sk-(?:proj-)?[A-Za-z0-9-_]{32,}$/;
   if (!apiKeyRegex.test(apiKey)) {
     logger.error('OpenAI API key format is invalid');
     return false;
@@ -64,7 +63,7 @@ const validateCredentials = (apiKey: string, orgId: string): boolean => {
  * @returns Configuration instance with validated credentials
  * @throws Error if credentials are invalid or missing
  */
-const createOpenAIConfig = (): Configuration => {
+const createOpenAIConfig = () => {
   const apiKey = process.env.OPENAI_API_KEY;
   const orgId = process.env.OPENAI_ORG_ID;
 
@@ -72,16 +71,7 @@ const createOpenAIConfig = (): Configuration => {
     throw new Error('Invalid OpenAI credentials');
   }
 
-  return new Configuration({
-    apiKey,
-    organization: orgId,
-    baseOptions: {
-      timeout: REQUEST_TIMEOUT,
-      headers: {
-        'User-Agent': `membo-ai/${process.env.API_VERSION || '1.0.0'}`,
-      },
-    },
-  });
+  return { apiKey, organization: orgId };
 };
 
 /**
@@ -99,15 +89,27 @@ const initializeRateLimiter = (): RateLimiter => {
 /**
  * OpenAI client wrapper with enhanced functionality
  */
-class OpenAIClient {
-  private client: OpenAIApi;
+export class OpenAIClient {
+  private readonly client: OpenAI;
   private rateLimiter: RateLimiter;
   private logger: pino.Logger;
 
-  constructor(config: Configuration) {
-    this.client = new OpenAIApi(config);
+  constructor(apiKey: string, organization?: string) {
+    this.client = new OpenAI({
+      apiKey,
+      organization
+    });
     this.rateLimiter = initializeRateLimiter();
     this.logger = logger.child({ service: 'OpenAIClient' });
+  }
+
+  public get audio() {
+    return this.client.audio;
+  }
+
+  // Add chat completions access
+  public get chat() {
+    return this.client.chat;
   }
 
   /**
@@ -173,16 +175,24 @@ class OpenAIClient {
    * @param params - Chat completion parameters
    * @returns Promise resolving to chat completion response
    */
-  async createChatCompletion(params: Parameters<OpenAIApi['createChatCompletion']>[0]) {
-    return this.executeWithRetry(() => this.client.createChatCompletion({
+  async createChatCompletion(params: Parameters<OpenAI['chat']['completions']['create']>[0]) {
+    return this.executeWithRetry(() => this.client.chat.completions.create({
+      ...params,
       model: params.model || DEFAULT_MODEL,
       temperature: params.temperature || DEFAULT_TEMPERATURE,
       max_tokens: params.max_tokens || DEFAULT_MAX_TOKENS,
-      ...params,
     }));
   }
 }
 
 // Create and export configured OpenAI client instance
 const config = createOpenAIConfig();
-export const openai = new OpenAIClient(config);
+export const openai = new OpenAIClient(config.apiKey, config.organization);
+
+// Export the type of our configured client
+export type ConfiguredOpenAI = OpenAI;
+
+// Export the configured instance
+export const openaiInstance = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
