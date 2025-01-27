@@ -50,7 +50,7 @@ jobs:
           cache-dependency-path: '**/package-lock.json'
 
       - name: Cache dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             **/node_modules
@@ -87,7 +87,7 @@ jobs:
           category: "/language:javascript"
 
       - name: Cache build artifacts
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ${{ env.WORKING_DIRECTORY }}/dist
           key: build-${{ github.sha }}
