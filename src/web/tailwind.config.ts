@@ -18,7 +18,10 @@ export default {
   			primary: 'var(--color-primary)'
   		},
   		colors: {
-  			background: 'hsl(var(--background))',
+  			background: {
+  				DEFAULT: 'hsl(var(--background))',
+  				input: 'var(--color-input-background)'
+  			},
   			primary: {
   				'10': 'color-mix(in srgb, var(--color-primary) 10%, transparent)',
   				'50': 'color-mix(in srgb, var(--color-primary) 50%, transparent)',
@@ -82,7 +85,9 @@ export default {
   				'monospace'
   			]
   		},
-  		fontSize: 'typography.fontSize',
+  		fontSize: {
+  			...typography.fontSize
+  		},
   		spacing: {
   			'1': '4px',
   			'2': '8px',
@@ -146,7 +151,6 @@ export default {
   },
   plugins: [
     tailwindForms,
-    tailwindAnimate,
-      require("tailwindcss-animate")
-],
+    tailwindAnimate
+  ],
 } satisfies Config

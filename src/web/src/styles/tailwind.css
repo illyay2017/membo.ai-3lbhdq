@@ -128,7 +128,7 @@
   /* Form inputs */
   .input {
     @apply w-full px-3 py-2 rounded-md border border-border 
-           bg-background-input text-foreground 
+           bg-input text-foreground 
            focus:ring-2 focus:ring-primary focus:ring-opacity-50 focus:border-transparent
            disabled:opacity-50 disabled:cursor-not-allowed;
   }
