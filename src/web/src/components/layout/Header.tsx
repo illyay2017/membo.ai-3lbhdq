@@ -31,6 +31,7 @@ interface HeaderProps {
   className?: string;
   showMobileMenu?: boolean;
   onMobileMenuToggle?: (isOpen: boolean) => void;
+  onMenuClick?: () => void;
 }
 
 const Header: React.FC<HeaderProps> = ({

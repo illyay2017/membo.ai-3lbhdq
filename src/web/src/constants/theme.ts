@@ -34,9 +34,9 @@ export const colors = {
 export const typography = {
   // Font families for different purposes
   fontFamily: {
-    primary: 'Inter',
-    secondary: 'SF Pro',
-    code: 'JetBrains Mono'
+    primary: "'Inter', system-ui, -apple-system, sans-serif",
+    secondary: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    mono: "'JetBrains Mono', monospace"
   },
 
   // Font size scale with rem units for accessibility
@@ -97,20 +97,25 @@ export const spacing = {
 /**
  * Responsive breakpoints and utility functions
  */
-export const breakpoints = {
-  // Breakpoint values
+export const breakpoints: {
+  values: {
+    mobile: string;
+    tablet: string;
+    desktop: string;
+    wide: string;
+  };
+  up: (breakpoint: 'mobile' | 'tablet' | 'desktop' | 'wide') => string;
+} = {
   values: {
     mobile: '320px',
     tablet: '768px',
     desktop: '1024px',
     wide: '1280px'
   },
-
-  // Media query helper function
-  up: (breakpoint: keyof typeof breakpoints.values) => {
+  up: (breakpoint) => {
     return `@media (min-width: ${breakpoints.values[breakpoint]})`;
   }
-} as const;
+};
 
 /**
  * Type definitions for theme values

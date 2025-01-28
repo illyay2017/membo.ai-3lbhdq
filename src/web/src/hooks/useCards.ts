@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import useCardStore from '../store/cardStore';
+import { useCardStore } from '../store/cardStore';
 import { Card, CardCreateInput, CardUpdateInput } from '../types/card';
 
 // Request cancellation token

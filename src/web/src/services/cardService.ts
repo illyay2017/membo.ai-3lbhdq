@@ -9,7 +9,9 @@ import { fsrs } from '@fsrs/core'; // v1.0.0
 import { api } from '../lib/api';
 import { Card, CardContent, FSRSData } from '../types/card';
 import { STUDY_MODES, FSRS_CONFIG } from '../constants/study';
-import { UserRole } from '../../backend/src/constants/userRoles';
+import { validateRegistrationData } from '../../utils/validation';
+import { UserRole } from '@shared/types/userRoles';
+// test
 
 // API endpoints for card operations
 const API_ENDPOINTS = {

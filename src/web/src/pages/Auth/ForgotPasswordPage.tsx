@@ -5,6 +5,7 @@ import Input from '../../components/ui/input';
 import Button from '../../components/ui/button';
 import { useAuth } from '../../hooks/useAuth';
 import { validateEmail } from '../../utils/validation';
+import { colors, typography } from '../../constants/theme';
 
 /**
  * ForgotPasswordPage component that handles password reset requests
@@ -28,7 +29,6 @@ const ForgotPasswordPage: React.FC = () => {
     e.preventDefault();
     setError(null);
 
-    // Validate email
     try {
       if (!validateEmail(email)) {
         setError('Please enter a valid email address');
@@ -36,17 +36,12 @@ const ForgotPasswordPage: React.FC = () => {
       }
 
       setIsLoading(true);
-
-      // Attempt password reset request
       await forgotPassword(email);
 
       // Show success message
       toast.success(
         'Password reset instructions have been sent to your email',
-        {
-          duration: 6000,
-          position: 'bottom-right',
-        }
+        { duration: 6000 }
       );
 
       // Redirect to login page after short delay
@@ -55,33 +50,24 @@ const ForgotPasswordPage: React.FC = () => {
       }, 2000);
 
     } catch (err) {
-      // Handle specific error cases
-      if (err instanceof Error) {
-        if (err.message.includes('rate limit')) {
-          setError('Too many attempts. Please try again later.');
-        } else if (err.message.includes('not found')) {
-          setError('No account found with this email address');
-        } else {
-          setError('An error occurred. Please try again.');
-        }
-        
-        toast.error('Password reset request failed', {
-          position: 'bottom-right',
-        });
-      }
+      setError(err instanceof Error ? err.message : 'Failed to send reset instructions');
+      toast.error('Password reset request failed');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4 sm:p-6 md:p-8">
-      <div className="w-full max-w-md p-6 sm:p-8 bg-white rounded-lg shadow-md">
-        <h1 className="text-2xl font-bold text-center mb-6 text-gray-900">
+    <div className="flex min-h-screen items-center justify-center bg-background dark:bg-background-dark">
+      <div className="w-full max-w-md space-y-8 rounded-xl bg-card p-8 shadow-lg dark:bg-card-dark">
+        <h1 
+          className="text-2xl font-bold text-center text-foreground dark:text-foreground-dark"
+          style={{ fontFamily: typography.fontFamily.primary }}
+        >
           Reset Your Password
         </h1>
         
-        <p className="text-sm text-gray-600 text-center mb-8">
+        <p className="text-sm text-center" style={{ color: colors.secondary }}>
           Enter your email address and we'll send you instructions to reset your password.
         </p>
 
@@ -92,18 +78,18 @@ const ForgotPasswordPage: React.FC = () => {
             type="email"
             label="Email Address"
             value={email}
-            error={error}
             onChange={setEmail}
+            error={error}
             placeholder="Enter your email address"
             disabled={isLoading}
             required
             autoComplete="email"
-            aria-label="Email Address"
-            aria-describedby={error ? 'email-error' : undefined}
           />
 
           <Button
             type="submit"
+            variant="default"
+            size="lg"
             className="w-full"
             disabled={isLoading}
             loading={isLoading}
@@ -114,8 +100,9 @@ const ForgotPasswordPage: React.FC = () => {
           <div className="text-center">
             <button
               type="button"
-              onClick={() => navigate('/login')}
-              className="text-sm text-primary hover:underline focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+              onClick={() => navigate('/auth/login')}
+              className="text-sm hover:text-primary-dark transition-colors"
+              style={{ color: colors.primary }}
             >
               Back to Login
             </button>

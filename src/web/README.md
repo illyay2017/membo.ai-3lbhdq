@@ -48,21 +48,42 @@ This creates self-signed certificates for local HTTPS, which is required for mic
 
 Note: When using the certificates, you may need to accept the security warning in your browser since they're self-signed.
 
-### Docker Development
-1. Start the development environment:
+### Using Docker Compose
 ```bash
-docker-compose up web
-```
-The app will be available at `http://localhost:5173`
+# Start all services including web
+docker compose up
 
-2. View logs:
-```bash
-docker-compose logs -f web
+# Run with watch mode for live updates (recommended)
+docker compose watch
+
+# View logs in a separate terminal
+docker compose logs -f        # For all services
 ```
 
-3. Rebuild after dependencies change:
-```bash
-docker-compose build web
+The web app will be available at `http://localhost:5173`
+
+Note: Running with `docker compose watch` enables automatic rebuilds when you make changes to your code, making development more efficient.
+
+### ReCAPTCHA Configuration
+1. Get your reCAPTCHA keys from [Google reCAPTCHA Admin](https://www.google.com/recaptcha/admin)
+2. Add site key to `.env`:
+```env
+VITE_RECAPTCHA_SITE_KEY=your_site_key_here
+```
+3. For local development, make sure to add `localhost` and `127.0.0.1` to the allowed domains in reCAPTCHA settings
+
+### Analytics
+Analytics are disabled by default in development. The project uses a wrapper to safely handle analytics:
+
+```typescript
+// In your component:
+import { analytics } from '../../utils/analytics';
+
+// Track events safely
+analytics.track('Event Name', { 
+  timestamp: new Date().toISOString(),
+  // other properties...
+});
 ```
 
 ## UI Development
@@ -131,6 +152,9 @@ src/
 ├── ai/                 # AI processing utilities
 ├── voice/              # Voice processing components
 └── tests/              # Test suites and fixtures
+├── vite-env.d.ts       # Vite type declarations
+├── constants/          # Application constants
+└── lib/               # Third-party library configurations
 ```
 
 ## Development Guidelines
@@ -176,6 +200,10 @@ src/
 - Implement integration tests for API calls
 - Add E2E tests for critical paths
 - Test voice processing features
+
+### Always use the analytics wrapper instead of direct analytics calls
+### Include autocomplete attributes on form inputs for better UX
+### Configure reCAPTCHA for both development and production environments
 
 ## Build and Deployment
 

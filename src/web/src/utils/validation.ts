@@ -146,3 +146,43 @@ export const sanitizeInput = (input: string): string => {
     // Trim whitespace
     .trim();
 };
+
+// Add this function to the existing validation.ts file
+export const validatePassword = (password: string): true | string => {
+  if (password.length < 8) {
+    return 'Password must be at least 8 characters';
+  }
+  if (!/[A-Z]/.test(password)) {
+    return 'Password must contain at least one uppercase letter';
+  }
+  if (!/[a-z]/.test(password)) {
+    return 'Password must contain at least one lowercase letter';
+  }
+  if (!/[0-9]/.test(password)) {
+    return 'Password must contain at least one number';
+  }
+  if (!/[^A-Za-z0-9]/.test(password)) {
+    return 'Password must contain at least one special character';
+  }
+  return true;
+};
+
+/**
+ * Validates email format for frontend validation
+ * @param email - Email address to validate
+ * @returns true if valid, error message string if invalid
+ */
+export const validateEmail = (email: string): true | string => {
+  // Basic email regex pattern
+  const EMAIL_PATTERN = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  
+  if (!email) {
+    return 'Email is required';
+  }
+  
+  if (!EMAIL_PATTERN.test(email)) {
+    return 'Please enter a valid email address';
+  }
+  
+  return true;
+};

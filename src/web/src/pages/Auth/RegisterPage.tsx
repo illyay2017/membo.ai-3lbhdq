@@ -6,8 +6,11 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { useAuth } from '../../hooks/useAuth';
 import { validateRegistrationData } from '../../utils/validation';
-import { UserRole } from '../../../backend/src/constants/userRoles';
+import { UserRole } from '@shared/types/userRoles';
 import { colors, typography } from '../../constants/theme';
+
+// Near the top of the file, get the site key from env
+const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
 
 // Registration form data interface
 interface RegisterFormData {
@@ -54,7 +57,7 @@ const RegisterPage: React.FC = () => {
   // Generate device fingerprint on mount
   useEffect(() => {
     const generateFingerprint = async () => {
-      const { default: FingerprintJS } = await import('@fingerprintjs/fingerprintjs');
+      const FingerprintJS = await import('@fingerprintjs/fingerprintjs');
       const fp = await FingerprintJS.load();
       const result = await fp.get();
       return result.visitorId;
@@ -181,7 +184,7 @@ const RegisterPage: React.FC = () => {
           <div className="flex justify-center">
             <ReCAPTCHA
               ref={recaptchaRef}
-              sitekey={process.env.VITE_RECAPTCHA_SITE_KEY || ''}
+              sitekey={RECAPTCHA_SITE_KEY}
               onChange={(token) => {
                 if (token) {
                   clearErrors('captchaToken');

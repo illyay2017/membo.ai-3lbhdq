@@ -1,7 +1,7 @@
 import React, { Suspense, useCallback } from 'react';
 import * as Tabs from '@radix-ui/react-tabs';
 import { ErrorBoundary } from 'react-error-boundary';
-import { useRoleAccess } from '@auth/role-access';
+import { useRoleAccess } from '@/hooks/useRoleAccess';
 import { useAnalytics } from '@analytics/core';
 import AppShell from '../../components/layout/AppShell';
 import PreferencesPage from './PreferencesPage';

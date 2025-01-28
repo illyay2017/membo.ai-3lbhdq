@@ -7,7 +7,7 @@
 import React, { useState, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
-import analytics from 'mixpanel-browser';
+import { analytics } from '../../utils/analytics';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { useAuth } from '../../hooks/useAuth';
@@ -48,7 +48,8 @@ const LoginPage: React.FC = () => {
   const {
     register,
     handleSubmit,
-    formState: { errors }
+    formState: { errors },
+    setValue
   } = useForm<LoginFormData>();
 
   // Form submission handler
@@ -60,7 +61,7 @@ const LoginPage: React.FC = () => {
       const sanitizedEmail = sanitizeInput(formData.email);
       const sanitizedPassword = sanitizeInput(formData.password);
 
-      // Track login attempt
+      // Track login attempt if analytics is available
       analytics.track('Login Attempt', {
         timestamp: new Date().toISOString()
       });
@@ -71,23 +72,26 @@ const LoginPage: React.FC = () => {
         password: sanitizedPassword
       });
 
-      // Track successful login
-      analytics.track('Login Success', {
-        timestamp: new Date().toISOString()
-      });
+      // Track successful login if analytics is available
+      if (analytics?.track) {
+        analytics.track('Login Success', {
+          timestamp: new Date().toISOString()
+        });
+      }
 
-      // Navigate to dashboard
       navigate('/dashboard');
 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Login failed';
       setError(errorMessage);
 
-      // Track login failure
-      analytics.track('Login Failed', {
-        error: errorMessage,
-        timestamp: new Date().toISOString()
-      });
+      // Track failure if analytics is available
+      if (analytics?.track) {
+        analytics.track('Login Failed', {
+          error: errorMessage,
+          timestamp: new Date().toISOString()
+        });
+      }
     }
   }, [login, navigate]);
 
@@ -100,7 +104,7 @@ const LoginPage: React.FC = () => {
               style={{ fontFamily: typography.fontFamily.primary }}>
             Welcome to membo.ai
           </h2>
-          <p className="mt-2 text-sm text-secondary dark:text-secondary-dark">
+          <p className="mt-2 text-sm" style={{ color: colors.secondary }}>
             Sign in to your account
           </p>
         </div>
@@ -110,25 +114,23 @@ const LoginPage: React.FC = () => {
           {/* Email Input */}
           <Input
             id="email"
-            name="email"
             type="email"
             label="Email Address"
             error={errors.email?.message}
-            {...register('email', validationRules.email)}
-            autoComplete="email"
-            required
+            {...register('email')}
+            onChange={(value) => setValue('email', value)}
+            autoComplete="username"
           />
 
           {/* Password Input */}
           <Input
             id="password"
-            name="password"
             type="password"
             label="Password"
             error={errors.password?.message}
-            {...register('password', validationRules.password)}
+            {...register('password')}
+            onChange={(value) => setValue('password', value)}
             autoComplete="current-password"
-            required
           />
 
           {/* Remember Me & Forgot Password */}
@@ -139,14 +141,14 @@ const LoginPage: React.FC = () => {
                 {...register('rememberMe')}
                 className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
               />
-              <span className="ml-2 text-sm text-secondary dark:text-secondary-dark">
+              <span className="ml-2 text-sm" style={{ color: colors.secondary }}>
                 Remember me
               </span>
             </label>
 
             <a
-              href="/forgot-password"
-              className="text-sm text-primary hover:text-primary-dark transition-colors"
+              href="/auth/forgot-password"
+              className="text-sm hover:text-primary-dark transition-colors"
               style={{ color: colors.primary }}
             >
               Forgot password?
@@ -164,6 +166,8 @@ const LoginPage: React.FC = () => {
           {/* Submit Button */}
           <Button
             type="submit"
+            variant="default"
+            size="lg"
             className="w-full"
             loading={isLoading}
             disabled={isLoading}
@@ -172,11 +176,11 @@ const LoginPage: React.FC = () => {
           </Button>
 
           {/* Sign Up Link */}
-          <p className="text-center text-sm text-secondary dark:text-secondary-dark">
+          <p className="text-center text-sm" style={{ color: colors.secondary }}>
             Don't have an account?{' '}
             <a
-              href="/register"
-              className="text-primary hover:text-primary-dark transition-colors"
+              href="/auth/register"
+              className="hover:text-primary-dark transition-colors"
               style={{ color: colors.primary }}
             >
               Sign up

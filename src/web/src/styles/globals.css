@@ -1,5 +1,8 @@
 /* Import font families - v5.x */
-@import '@fontsource/inter/index.css';
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/500.css';
+@import '@fontsource/inter/600.css';
+@import '@fontsource/inter/700.css';
 @import '@fontsource/jetbrains-mono/index.css';
 
 /* Import Tailwind CSS */
@@ -13,6 +16,8 @@
     --font-code: 'JetBrains Mono', monospace;
 
     /* Colors */
+    --primary: 217 91% 60%; /* This is equivalent to #2563eb */
+    --primary-foreground: 0 0% 100%; /* White text */
     --color-primary: #2563eb;
     --color-primary-dark: #1d4ed8;
     --color-secondary: #64748b;
@@ -40,6 +45,23 @@
     /* Focus */
     --focus-ring: 0 0 0 2px var(--color-primary);
     --focus-ring-dark: 0 0 0 2px var(--color-primary-dark);
+
+    /* Add these background color variables */
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
   }
 }
 
@@ -62,6 +84,7 @@ body {
   background-color: #ffffff;
   color: #1f2937;
   transition: background-color var(--animation-duration) ease;
+  @apply bg-background text-foreground;
 }
 
 /* Base styles with enhanced accessibility */
