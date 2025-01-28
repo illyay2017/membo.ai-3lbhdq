@@ -7,6 +7,7 @@ import { analytics } from './lib/analytics';
 import AppShell from './components/layout/AppShell';
 import { ROUTES } from './constants/routes';
 import { useAuthStore } from './store/authStore';
+import ErrorComponent from './components/ErrorComponent';
 
 // Session refresh configuration
 const SESSION_REFRESH_INTERVAL = 25 * 60 * 1000; // 25 minutes
@@ -193,6 +194,7 @@ const App: React.FC = React.memo(() => {
                 <div>Cards Page</div>
               </ProtectedRoute>
             }
+            errorElement={<ErrorComponent />}
           />
           <Route
             path={ROUTES.DASHBOARD.HOME}
@@ -228,7 +230,12 @@ App.displayName = 'App';
  * Root application wrapper with router provider
  */
 const AppWrapper: React.FC = () => (
-  <BrowserRouter>
+  <BrowserRouter
+    future={{
+      v7_startTransition: true,
+      v7_relativeSplatPath: true
+    }}
+  >
     <App />
   </BrowserRouter>
 );
