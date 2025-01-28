@@ -51,6 +51,7 @@ export class AuthService {
 
     this.redisClient.connect().catch(console.error);
     this.setupTokenCleanup();
+    console.log('AuthService initialized');
   }
 
   /**
@@ -92,6 +93,7 @@ export class AuthService {
    */
   public async login(email: string, password: string): Promise<AuthResponse> {
     try {
+      console.log('AuthService.login called with:', { email, hasPassword: !!password });
       // Check rate limiting
       await this.checkRateLimit(email);
 
@@ -112,6 +114,7 @@ export class AuthService {
 
       return { user, token, refreshToken };
     } catch (error) {
+      console.error('AuthService.login error:', error);
       throw new Error(`Authentication failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -300,12 +303,16 @@ export class AuthService {
    */
   private setupTokenCleanup(): void {
     setInterval(async () => {
-      const keys = await this.redisClient.keys(`${this.TOKEN_BLACKLIST_PREFIX}*`);
-      for (const key of keys) {
-        const ttl = await this.redisClient.ttl(key);
-        if (ttl <= 0) {
-          await this.redisClient.del(key);
+      try {
+        const keys = await this.redisClient.keys(`${this.TOKEN_BLACKLIST_PREFIX}*`);
+        for (const key of keys) {
+          const ttl = await this.redisClient.ttl(key);
+          if (ttl <= 0) {
+            await this.redisClient.del(key);
+          }
         }
+      } catch (error) {
+        console.error('Token cleanup error:', error);
       }
     }, 60 * 60 * 1000); // Run every hour
   }

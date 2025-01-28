@@ -44,5 +44,5 @@ services:
 
 networks:
   membo_network:
-    name: backend_membo_network
+    name: membo_network
     external: true

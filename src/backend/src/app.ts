@@ -26,6 +26,8 @@ import { MetricsCollector } from './core/metrics/MetricsCollector';
 import { StudySessionManager } from './core/study/studySessionManager';
 import { VoiceService } from './services/VoiceService';
 import bodyParser from 'body-parser';
+import { RedisClient } from './core/redis/RedisClient';
+import { DatabaseManager } from './core/database/DatabaseManager';
 
 // Initialize Express application
 const app: Application = express();
@@ -64,12 +66,11 @@ const configureMiddleware = (app: Application): void => {
 
   // CORS configuration
   app.use(cors({
-    origin: process.env.CORS_ORIGINS?.split(',') || ['http://localhost:3000'],
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+    origin: ['http://localhost:5173'], // Your frontend URL
+    credentials: true, // Required for cookies
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
-    exposedHeaders: ['X-RateLimit-Limit', 'X-RateLimit-Remaining'],
-    credentials: true,
-    maxAge: 600 // 10 minutes
+    exposedHeaders: ['set-cookie']
   }));
 
   // Request parsing
@@ -126,16 +127,13 @@ server.maxConnections = parseInt(process.env.MAX_CONNECTIONS || '1000', 10);
 // Configure middleware
 configureMiddleware(app);
 
-// Mount API routes
+// Mount API routes with proper base path
 app.use('/api', routes);
 
-// Health check endpoint
-app.get('/health', (req: Request, res: Response) => {
-  res.status(200).json({
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    version: process.env.API_VERSION
-  });
+// Add a debug middleware to log incoming requests
+app.use((req: Request, res: Response, next: NextFunction) => {
+  console.log(`${req.method} ${req.path}`);
+  next();
 });
 
 // Global error handler

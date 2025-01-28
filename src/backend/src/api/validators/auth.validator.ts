@@ -23,21 +23,39 @@ const LOGIN_SCHEMA = Joi.object({
   email: Joi.string()
     .required()
     .email()
-    .custom((value, helpers) => {
-      const result = validateEmail(value, { checkMX: true, checkDisposable: true });
-      if (!result.isValid) {
-        return helpers.error(result.errors[0].message);
+    .custom(async (value, helpers) => {
+      try {
+        const result = await validateEmail(value, { checkMX: true, checkDisposable: true });
+        if (!result.isValid) {
+          return helpers.error('any.invalid', { 
+            message: result.errors?.[0]?.message || 'Invalid email'
+          });
+        }
+        return value;
+      } catch (error) {
+        console.error('Email validation error:', error);
+        return helpers.error('any.invalid', { 
+          message: 'Email validation failed'
+        });
       }
-      return value;
     }),
   password: Joi.string()
     .required()
     .custom((value, helpers) => {
-      const result = validatePassword(value, { calculateStrength: true });
-      if (!result.isValid) {
-        return helpers.error(result.errors[0].message);
+      try {
+        const result = validatePassword(value, { calculateStrength: true });
+        if (!result.isValid) {
+          return helpers.error('any.invalid', { 
+            message: result.errors?.[0]?.message || 'Invalid password'
+          });
+        }
+        return value;
+      } catch (error) {
+        console.error('Password validation error:', error);
+        return helpers.error('any.invalid', { 
+          message: 'Password validation failed'
+        });
       }
-      return value;
     }),
   metadata: metadataSchema
 });
@@ -127,8 +145,23 @@ export const validateLoginRequest = async (requestData: Partial<IUser & { metada
     };
   }
 
-  // Validate request data
-  const validationResult = await validateSchema(LOGIN_SCHEMA, requestData);
+  // Validate request data using Joi directly
+  const validationResult = await LOGIN_SCHEMA.validateAsync(requestData, { 
+    abortEarly: false,
+    stripUnknown: true 
+  }).then(value => ({
+    isValid: true,
+    value,
+    errors: []
+  })).catch(err => ({
+    isValid: false,
+    errors: err.details.map((detail: any) => ({
+      field: detail.path.join('.'),
+      message: detail.message,
+      code: detail.type,
+      severity: 'error'
+    }))
+  }));
 
   // Update rate limiting cache
   if (!validationResult.isValid) {

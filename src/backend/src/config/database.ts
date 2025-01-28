@@ -4,10 +4,9 @@
  * @license MIT
  */
 
-import { Pool, PoolConfig, QueryResult } from 'pg'; // v8.11.3
+import { Pool, PoolConfig, QueryResult, QueryResultRow } from 'pg'; // v8.11.3
 import pino, { Logger } from 'pino'; // v8.16.0
 import CircuitBreaker from 'opossum'; // v7.1.0
-import { ProcessEnv } from '../types/environment';
 import supabase from './supabase';
 
 /**
@@ -77,13 +76,12 @@ const createDatabasePool = (connectionString: string, poolConfig: PoolConfig): P
   const pool = new Pool({
     connectionString,
     ...DATABASE_CONFIG.pool,
-    ...poolConfig,
-    ssl: DATABASE_CONFIG.ssl
+    ...poolConfig
   });
 
-  pool.on('connect', (client) => {
-    client.query('SET statement_timeout TO $1', [DATABASE_CONFIG.pool.statement_timeout]);
-    client.query('SET idle_in_transaction_session_timeout TO $1', [DATABASE_CONFIG.pool.idleTimeoutMillis]);
+  pool.on('connect', async (client) => {
+    await client.query(`SET statement_timeout = ${DATABASE_CONFIG.pool.statement_timeout}`);
+    await client.query(`SET idle_in_transaction_session_timeout = ${DATABASE_CONFIG.pool.idleTimeoutMillis}`);
   });
 
   pool.on('error', (err) => {
@@ -100,11 +98,18 @@ class DatabaseManager {
   private primaryPool: Pool;
   private replicaPools: Pool[] = [];
   private logger: Logger;
-  private circuitBreaker: CircuitBreaker;
+  private circuitBreaker: CircuitBreaker<
+    [query: string, params?: unknown[], useReplica?: boolean],
+    QueryResult<QueryResultRow>
+  >;
   private metricsCollector: MetricsCollector;
   private currentReplicaIndex: number = 0;
 
   constructor() {
+    // Add debug logging
+    console.log('Initializing DatabaseManager with URL:', 
+      process.env.DATABASE_URL?.replace(/:[^:@]*@/, ':***@')); // Hide password in logs
+
     this.logger = pino({
       level: process.env.LOG_LEVEL || 'info',
       redact: DATABASE_CONFIG.security.queryLogging.sensitiveParams
@@ -117,7 +122,18 @@ class DatabaseManager {
       errorRate: 0
     };
 
-    this.primaryPool = createDatabasePool(process.env.DATABASE_URL!, {});
+    try {
+      this.primaryPool = createDatabasePool(process.env.DATABASE_URL!, {});
+      
+      // Test connection with raw query (no parameters)
+      this.primaryPool.query('SELECT version()')
+        .then(result => console.log('Database connection successful:', result.rows[0]))
+        .catch(err => console.error('Database connection failed:', err));
+
+    } catch (error) {
+      console.error('Failed to create database pool:', error);
+      throw error;
+    }
 
     if (DATABASE_CONFIG.readReplicas.enabled) {
       for (let i = 0; i < DATABASE_CONFIG.readReplicas.count; i++) {
@@ -128,11 +144,15 @@ class DatabaseManager {
       }
     }
 
-    this.circuitBreaker = new CircuitBreaker(this.executeQueryInternal.bind(this), {
-      timeout: 5000,
-      errorThresholdPercentage: 50,
-      resetTimeout: 30000
-    });
+    this.circuitBreaker = new CircuitBreaker(
+      async (query: string, params: unknown[] = [], useReplica = false) => 
+        this.executeQueryInternal(query, params, useReplica),
+      {
+        timeout: 5000,
+        errorThresholdPercentage: 50,
+        resetTimeout: 30000
+      }
+    );
 
     this.setupMonitoring();
   }
@@ -163,18 +183,20 @@ class DatabaseManager {
     return this.replicaPools[this.currentReplicaIndex];
   }
 
-  private async executeQueryInternal<T>(
+  private async executeQueryInternal<T extends QueryResultRow>(
     query: string,
-    params: any[],
+    params: unknown[] = [],
     useReplica: boolean = false
   ): Promise<QueryResult<T>> {
     const startTime = Date.now();
     const pool = useReplica ? this.getReplicaPool() : this.primaryPool;
 
     try {
-      const result = await pool.query<T>(query, params);
-      const queryTime = Date.now() - startTime;
+      const result = params.length > 0 
+        ? await pool.query<T>(query, params)
+        : await pool.query<T>(query);
       
+      const queryTime = Date.now() - startTime;
       this.metricsCollector.queryTime.push(queryTime);
 
       if (queryTime > DATABASE_CONFIG.monitoring.alertThresholds.queryTimeMs) {
@@ -188,13 +210,12 @@ class DatabaseManager {
     }
   }
 
-  public async executeQuery<T>(
+  public async executeQuery<T extends QueryResultRow>(
     query: string,
-    params: any[] = [],
-    useReplica: boolean = false,
-    options: { timeout?: number } = {}
+    params: unknown[] = [],
+    useReplica: boolean = false
   ): Promise<QueryResult<T>> {
-    return this.circuitBreaker.fire(query, params, useReplica);
+    return this.circuitBreaker.fire(query, params, useReplica) as Promise<QueryResult<T>>;
   }
 
   public getMetrics(): MetricsCollector {
@@ -212,16 +233,16 @@ class DatabaseManager {
  */
 export const initializeDatabase = async (): Promise<void> => {
   try {
-    const { data: { version }, error } = await supabase
+    const { data, error } = await supabase
       .from('pg_version')
       .select('version')
       .single();
 
-    if (error) {
+    if (error || !data) {
       throw new Error('Failed to verify database version');
     }
 
-    console.log(`Connected to PostgreSQL version ${version}`);
+    console.log(`Connected to PostgreSQL version ${data.version}`);
   } catch (error) {
     console.error('Database initialization failed:', error);
     throw error;

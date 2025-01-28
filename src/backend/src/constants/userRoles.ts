@@ -4,8 +4,6 @@
  * permissions used throughout the application for authorization and security controls.
  */
 
-import { UserRole, DEFAULT_ROLE_PERMISSIONS } from '@shared/types/userRoles';
-
 /**
  * Enumeration of all possible user roles in the system with their corresponding
  * permission levels. Used for role-based access control throughout the application.
@@ -70,14 +68,3 @@ export const enum UserRole {
      */
     SYSTEM_ADMIN = 'SYSTEM_ADMIN'
 }
-
-// Re-export for backend usage
-export { UserRole, DEFAULT_ROLE_PERMISSIONS };
-
-// Backend-specific role utilities
-export const hasPermission = (userRole: UserRole, requiredRole: UserRole): boolean => {
-    const roleValues = Object.values(UserRole);
-    const userRoleIndex = roleValues.indexOf(userRole);
-    const requiredRoleIndex = roleValues.indexOf(requiredRole);
-    return userRoleIndex >= requiredRoleIndex;
-};

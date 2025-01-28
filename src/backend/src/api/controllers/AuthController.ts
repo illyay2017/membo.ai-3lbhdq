@@ -111,6 +111,15 @@ export class AuthController {
    */
   public login = async (req: Request, res: Response): Promise<Response> => {
     try {
+      // Add debug logging
+      console.log('Login request received:');
+      console.log('Full URL:', req.originalUrl);
+      console.log('Base URL:', req.baseUrl);
+      console.log('Path:', req.path);
+      console.log('Headers:', req.headers);
+      console.log('Body:', { ...req.body, password: '***' });
+      console.log('IP:', req.ip);
+
       // Check rate limiting
       try {
         await this.rateLimiter.consume(req.ip);
@@ -167,6 +176,13 @@ export class AuthController {
 
       logger.info('User logged in successfully', { userId: user.id });
 
+      // Log response
+      console.log('Sending response:', {
+        status: 200,
+        user: user.id,
+        tokensPresent: !!token && !!refreshToken
+      });
+
       return res.status(200).json({
         user: {
           id: user.id,
@@ -178,6 +194,7 @@ export class AuthController {
         token
       });
     } catch (error) {
+      console.error('Login error:', error);
       logger.error('Login failed', { error, path: req.path });
       return res.status(401).json(createErrorDetails(
         ErrorCodes.UNAUTHORIZED,

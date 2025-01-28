@@ -12,7 +12,7 @@ import { StudyModes } from '../constants/studyModes';
 import { openai } from '../config/openai';
 import { IStudySession } from '../interfaces/IStudySession';
 import Redis from 'ioredis';
-import { ContentStatus } from '@/interfaces/IContent';
+import { ContentStatus } from '../interfaces/IContent';
 
 /**
  * Enhanced service class for flashcard management with retention optimization
