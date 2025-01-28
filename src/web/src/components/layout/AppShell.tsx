@@ -6,6 +6,7 @@ import Header from './Header';
 import Sidebar from './Sidebar';
 import ContextPanel from './ContextPanel';
 import { useUIStore } from '../../store/uiStore';
+import { useAuth } from '../../hooks/useAuth';
 
 // Interface for component props
 interface AppShellProps {
@@ -18,7 +19,7 @@ interface AppShellProps {
  * with responsive behavior and accessibility support.
  */
 const AppShell = React.memo<AppShellProps>(({ children, className }) => {
-  // Get UI state from store
+  const { isAuthenticated } = useAuth();
   const { 
     responsive: { isMobile, isTablet },
     navigation: { isSidebarOpen, isContextPanelOpen },
@@ -72,40 +73,55 @@ const AppShell = React.memo<AppShellProps>(({ children, className }) => {
           className
         )}
       >
-        {/* Header */}
-        <Header
-          className="z-50"
-          onMenuClick={isMobile ? handleSidebarToggle : undefined}
-        />
+        {/* Only show Header and Sidebar if authenticated */}
+        {isAuthenticated && (
+          <>
+            <Header
+              className="z-50"
+              onMenuClick={isMobile ? handleSidebarToggle : undefined}
+            />
+            <div className="flex flex-1 h-[calc(100vh-64px)] relative">
+              <Sidebar
+                isCollapsed={!isSidebarOpen}
+                onToggle={handleSidebarToggle}
+                className={cn(
+                  'transition-transform duration-300 ease-in-out',
+                  !isSidebarOpen && '-translate-x-full',
+                  isMobile && 'absolute left-0 top-0 bottom-0 z-40'
+                )}
+                aria-expanded={isSidebarOpen}
+              />
+              {/* Main content area */}
+              <main 
+                className={cn(
+                  'flex-1 overflow-auto scrollbar-thin scrollbar-thumb-gray-300',
+                  'dark:scrollbar-thumb-gray-600 scroll-smooth',
+                  'p-4 md:p-6',
+                  isTransitioning && 'transition-all duration-300 ease-in-out'
+                )}
+                role="main"
+              >
+                {children}
+              </main>
+            </div>
+          </>
+        )}
+        
+        {/* Always render main content */}
+        <main 
+          className={cn(
+            'flex-1 overflow-auto scrollbar-thin scrollbar-thumb-gray-300',
+            'dark:scrollbar-thumb-gray-600 scroll-smooth',
+            'p-4 md:p-6',
+            isTransitioning && 'transition-all duration-300 ease-in-out'
+          )}
+          role="main"
+        >
+          {children}
+        </main>
 
-        {/* Main layout container */}
-        <div className="flex flex-1 h-[calc(100vh-64px)] relative">
-          {/* Sidebar */}
-          <Sidebar
-            isCollapsed={!isSidebarOpen}
-            onToggle={handleSidebarToggle}
-            className={cn(
-              'transition-transform duration-300 ease-in-out',
-              !isSidebarOpen && '-translate-x-full',
-              isMobile && 'absolute left-0 top-0 bottom-0 z-40'
-            )}
-            aria-expanded={isSidebarOpen}
-          />
-
-          {/* Main content area */}
-          <main 
-            className={cn(
-              'flex-1 overflow-auto scrollbar-thin scrollbar-thumb-gray-300',
-              'dark:scrollbar-thumb-gray-600 scroll-smooth',
-              'p-4 md:p-6',
-              isTransitioning && 'transition-all duration-300 ease-in-out'
-            )}
-            role="main"
-          >
-            {children}
-          </main>
-
-          {/* Context panel */}
+        {/* Only show context panel if authenticated */}
+        {isAuthenticated && (
           <ContextPanel
             className={cn(
               'transition-transform duration-300 ease-in-out',
@@ -114,7 +130,7 @@ const AppShell = React.memo<AppShellProps>(({ children, className }) => {
             )}
             isVisible={isContextPanelOpen}
           />
-        </div>
+        )}
 
         {/* Overlay for mobile sidebar */}
         {isMobile && isSidebarOpen && (

@@ -6,18 +6,19 @@
 
 import React, { useCallback, useRef } from 'react';
 import { sanitizeInput } from '../../utils/validation'; // v1.0.0
-import { cn } from 'clsx'; // v2.0.0
+import { cn } from '../../lib/utils';
 
 // Input types supported by the component
 type InputType = 'text' | 'email' | 'password' | 'search' | 'tel' | 'url' | 'number';
 type InputMode = 'none' | 'text' | 'tel' | 'url' | 'email' | 'numeric' | 'decimal' | 'search';
 
-export interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange'> {
+export interface InputProps
+  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange' | 'onBlur'> {
   id: string;
   name: string;
-  label: string;
+  label?: string;
   placeholder?: string;
-  value: string;
+  value?: string;
   error?: string;
   className?: string;
   disabled?: boolean;
@@ -30,8 +31,8 @@ export interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElem
   autoComplete?: string;
   'aria-label'?: string;
   'aria-describedby'?: string;
-  onChange: (value: string) => void;
-  onBlur?: () => void;
+  onChange?: (value: string) => void;
+  onBlur?: (event: React.FocusEvent<HTMLInputElement>) => void;
   onFocus?: () => void;
 }
 
@@ -39,73 +40,45 @@ export interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElem
  * Input component with comprehensive validation and accessibility features
  */
 export const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  (
-    {
-      id,
-      name,
-      label,
-      placeholder,
-      value,
-      error,
-      className,
-      disabled = false,
-      required = false,
-      type = 'text',
-      inputMode,
-      pattern,
-      maxLength,
-      minLength,
-      autoComplete,
-      'aria-label': ariaLabel,
-      'aria-describedby': ariaDescribedBy,
-      onChange,
-      onBlur,
-      onFocus,
-      ...props
-    },
-    ref
-  ) => {
+  ({ id, name, label, placeholder, value, error, className, disabled = false, required = false, type = 'text', inputMode, pattern, maxLength, minLength, autoComplete, 'aria-label': ariaLabel, 'aria-describedby': ariaDescribedBy, onChange, onBlur, onFocus, ...props }, ref) => {
     // Unique IDs for accessibility
     const errorId = useRef(`${id}-error`);
     const labelId = useRef(`${id}-label`);
 
     // Debounced input change handler with validation
     const handleChange = useCallback(
-      (event: React.ChangeEvent<HTMLInputElement>) => {
-        const rawValue = event.target.value;
-        
-        // Apply input sanitization
+      (event: React.ChangeEvent<HTMLInputElement> | string) => {
+        const rawValue = typeof event === 'string' ? event : event.target.value;
         const sanitizedValue = sanitizeInput(rawValue);
 
-        // Validate against pattern if provided
         if (pattern && !new RegExp(pattern).test(sanitizedValue)) {
           return;
         }
 
-        // Check length constraints
-        if (
-          (maxLength && sanitizedValue.length > maxLength) ||
-          (minLength && sanitizedValue.length < minLength)
-        ) {
+        if (maxLength && sanitizedValue.length > maxLength) {
           return;
         }
 
-        onChange(sanitizedValue);
+        if (onChange) {
+          onChange(sanitizedValue);
+        }
       },
-      [onChange, pattern, maxLength, minLength]
+      [onChange, pattern, maxLength]
     );
 
     return (
       <div className={cn('flex flex-col gap-1.5 w-full', className)}>
         {/* Input Label */}
-        <label
-          htmlFor={id}
-          id={labelId.current}
-          className="text-sm font-medium text-gray-700 select-none"
-        >
-          {label}
-          {required && <span className="text-red-500 ml-1">*</span>}
-        </label>
+        {label && (
+          <label
+            htmlFor={id}
+            id={labelId.current}
+            className="text-sm font-medium text-gray-700 select-none"
+          >
+            {label}
+            {required && <span className="text-red-500 ml-1">*</span>}
+          </label>
+        )}
 
         {/* Input Field */}
         <input

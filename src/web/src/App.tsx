@@ -9,6 +9,17 @@ import { ROUTES } from './constants/routes';
 import { useAuthStore } from './store/authStore';
 import ErrorComponent from './components/ErrorComponent';
 
+// Import actual page components
+import LoginPage from './pages/Auth/LoginPage';
+import RegisterPage from './pages/Auth/RegisterPage';
+import ForgotPasswordPage from './pages/Auth/ForgotPasswordPage';
+import ResetPasswordPage from './pages/Auth/ResetPasswordPage';
+import VerifyEmailPage from './pages/Auth/VerifyEmailPage';
+import InboxPage from './pages/Content/InboxPage';
+import StudyPage from './pages/Study/StudyPage';
+import CardsPage from './pages/Cards/CardsPage';
+import DashboardPage from './pages/Dashboard/DashboardPage';
+
 // Session refresh configuration
 const SESSION_REFRESH_INTERVAL = 25 * 60 * 1000; // 25 minutes
 const MAX_RETRY_ATTEMPTS = 3;
@@ -165,17 +176,18 @@ const App: React.FC = React.memo(() => {
       <AppShell>
         <Routes>
           {/* Public routes */}
-          <Route path={ROUTES.AUTH.LOGIN} element={<div>Login Page</div>} />
-          <Route path={ROUTES.AUTH.REGISTER} element={<div>Register Page</div>} />
-          <Route path={ROUTES.AUTH.FORGOT_PASSWORD} element={<div>Forgot Password Page</div>} />
-          <Route path={ROUTES.AUTH.RESET_PASSWORD} element={<div>Reset Password Page</div>} />
+          <Route path={ROUTES.AUTH.LOGIN} element={<LoginPage />} />
+          <Route path={ROUTES.AUTH.REGISTER} element={<RegisterPage />} />
+          <Route path={ROUTES.AUTH.FORGOT_PASSWORD} element={<ForgotPasswordPage />} />
+          <Route path={ROUTES.AUTH.RESET_PASSWORD} element={<ResetPasswordPage />} />
+          <Route path={ROUTES.AUTH.VERIFY_EMAIL} element={<VerifyEmailPage />} />
 
           {/* Protected routes */}
           <Route
             path={ROUTES.CONTENT.INBOX}
             element={
               <ProtectedRoute>
-                <div>Inbox Page</div>
+                <InboxPage />
               </ProtectedRoute>
             }
           />
@@ -183,7 +195,7 @@ const App: React.FC = React.memo(() => {
             path={ROUTES.STUDY.HOME}
             element={
               <ProtectedRoute>
-                <div>Study Page</div>
+                <StudyPage />
               </ProtectedRoute>
             }
           />
@@ -191,7 +203,7 @@ const App: React.FC = React.memo(() => {
             path={ROUTES.CARDS.LIST}
             element={
               <ProtectedRoute>
-                <div>Cards Page</div>
+                <CardsPage />
               </ProtectedRoute>
             }
             errorElement={<ErrorComponent />}
@@ -200,7 +212,7 @@ const App: React.FC = React.memo(() => {
             path={ROUTES.DASHBOARD.HOME}
             element={
               <ProtectedRoute>
-                <div>Dashboard Page</div>
+                <DashboardPage />
               </ProtectedRoute>
             }
           />
@@ -217,7 +229,7 @@ const App: React.FC = React.memo(() => {
           />
 
           {/* 404 fallback */}
-          <Route path="*" element={<div>404 Not Found</div>} />
+          <Route path="*" element={<ErrorComponent />} />
         </Routes>
       </AppShell>
     </ErrorBoundary>

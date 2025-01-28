@@ -25,6 +25,7 @@ services:
       - ./package.json:/app/package.json
       - ./tsconfig.json:/app/tsconfig.json
       - ./vite.config.ts:/app/vite.config.ts
+      - ../../src/shared:/app/../../src/shared
       - /app/node_modules
     environment:
       - NODE_ENV=development

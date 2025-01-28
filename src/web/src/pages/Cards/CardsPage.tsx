@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ErrorBoundary } from 'react-error-boundary';
-import { Analytics } from '@segment/analytics-next';
+import { analytics } from '../../lib/analytics';
 
 import CardList from '../../components/cards/CardList';
 import CardFilters from '../../components/cards/CardFilters';
-import useCardStore from '../../store/cardStore';
+import { useCardStore } from '../../store/cardStore';
 import { STUDY_MODES } from '../../constants/study';
 import type { Card } from '../../types/card';
 
@@ -25,7 +25,6 @@ interface CardsPageState {
  */
 const CardsPage: React.FC = () => {
   const navigate = useNavigate();
-  const analytics = Analytics.getInstance();
 
   // Get card store state and actions
   const { 
@@ -60,24 +59,27 @@ const CardsPage: React.FC = () => {
 
   // Handle card selection and navigation
   const handleCardSelect = useCallback((card: Card) => {
-    analytics.track('Card Selected', {
-      cardId: card.id,
-      contentType: card.frontContent.type,
-      studyMode: state.selectedMode
+    analytics.trackCardInteraction({
+      type: 'card_selected',
+      path: `/cards/${card.id}`,
+      timestamp: Date.now()
     });
 
     navigate(`/cards/${card.id}`);
-  }, [navigate, analytics, state.selectedMode]);
+  }, [navigate]);
 
   // Handle study mode changes
   const handleModeChange = useCallback((mode: STUDY_MODES | null) => {
-    analytics.track('Study Mode Changed', {
+    analytics.trackCardInteraction({
+      type: 'study_mode_changed',
+      path: location.pathname,
       mode,
-      userRole
+      userRole,
+      timestamp: Date.now()
     });
 
     setState(prev => ({ ...prev, selectedMode: mode, page: 1 }));
-  }, [analytics, userRole]);
+  }, [userRole]);
 
   // Handle tag filter changes
   const handleTagsChange = useCallback((tags: string[]) => {

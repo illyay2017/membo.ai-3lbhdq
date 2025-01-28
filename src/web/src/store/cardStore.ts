@@ -10,7 +10,7 @@ import { Card } from '../types/card';
 import { STUDY_MODES } from '../constants/study';
 import { cardService } from '../services/cardService';
 import { useUIStore } from './uiStore';
-import { UserRole } from '@membo/types';
+import { UserRole } from "@shared/types/userRoles";
 
 // Study session interface
 interface StudySession {

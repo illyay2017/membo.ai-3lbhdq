@@ -6,12 +6,14 @@ import ProgressBar from '../study/ProgressBar';
 import { useStudySession } from '../../hooks/useStudySession';
 import { VoiceRecognitionState } from '../../types/voice';
 import { colors } from '../../constants/theme';
+import { StudySession } from '@/types/study';
 
 // Interface for component props
 interface ContextPanelProps {
   className?: string;
   isStudyMode?: boolean;
   studySession?: StudySession | null;
+  isVisible?: boolean;
 }
 
 // Quick action type definition

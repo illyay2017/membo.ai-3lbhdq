@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { cn } from '@/lib/utils';
-import { useRoleAccess } from '@auth/hooks'; // v1.0.0
-import { colors } from '@/styles/theme'; // v1.0.0
+import { useRoleAccess } from '@/hooks/useRoleAccess';
+import { colors } from '@/constants/theme';
 import { Card } from '../ui/card';
 
 // Types for content status and metadata

@@ -4,7 +4,7 @@
  * authentication flow with Supabase and implement role-based access control.
  */
 
-import { UserRole } from '../../backend/src/constants/userRoles';
+import { UserRole } from '@shared/types/userRoles';
 
 /**
  * Interface defining the required credentials for user login.

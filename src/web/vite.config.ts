@@ -18,8 +18,10 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      '@shared': path.resolve(__dirname, '../../../src/shared'),
       '@fontsource': path.resolve(__dirname, 'node_modules/@fontsource')
-    }
+    },
+    mainFields: ['browser', 'module', 'main']
   },
 
   // Build configuration with optimizations
@@ -86,7 +88,7 @@ export default defineConfig({
       // Security headers that were previously in meta tags
       'Content-Security-Policy': [
         "default-src 'self'",
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.google.com https://www.gstatic.com",
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         "img-src 'self' data: https: blob:",
         "font-src 'self' https://fonts.gstatic.com",
@@ -96,6 +98,7 @@ export default defineConfig({
         "base-uri 'self'",
         "form-action 'self'",
         "frame-ancestors 'none'",
+        "frame-src 'self' https://www.google.com",
         "upgrade-insecure-requests"
       ].join('; '),
       'X-Frame-Options': 'DENY',
@@ -114,7 +117,7 @@ export default defineConfig({
       // Same security headers for preview server
       'Content-Security-Policy': [
         "default-src 'self'",
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.google.com https://www.gstatic.com",
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         "img-src 'self' data: https: blob:",
         "font-src 'self' https://fonts.gstatic.com",
@@ -124,6 +127,7 @@ export default defineConfig({
         "base-uri 'self'",
         "form-action 'self'",
         "frame-ancestors 'none'",
+        "frame-src 'self' https://www.google.com",
         "upgrade-insecure-requests"
       ].join('; '),
       'X-Frame-Options': 'DENY',
@@ -146,6 +150,7 @@ export default defineConfig({
     'process.env': {
       NODE_ENV: JSON.stringify(process.env.NODE_ENV),
       VITE_API_URL: JSON.stringify(process.env.VITE_API_URL),
+      VITE_RECAPTCHA_SITE_KEY: JSON.stringify(process.env.VITE_RECAPTCHA_SITE_KEY),
       // Add any other env variables you need
     }
   }

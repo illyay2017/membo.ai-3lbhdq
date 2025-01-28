@@ -1,4 +1,5 @@
 {
+  "extends": "../../tsconfig.json",
   "compilerOptions": {
     "target": "ES2022",
     "module": "CommonJS",
@@ -11,9 +12,10 @@
     "forceConsistentCasingInFileNames": true,
     "moduleResolution": "node",
     "resolveJsonModule": true,
-    "baseUrl": ".",
+    "baseUrl": "../../src",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["backend/src/*"],
+      "@shared/*": ["shared/*"]
     },
     "typeRoots": [
       "./node_modules/@types",
@@ -35,12 +37,8 @@
     "diagnostics": true
   },
   "include": [
-    "src/**/*",
-    "src/**/*.ts",
-    "src/**/*.tsx",
-    "src/**/*.json",
-    "tests/**/*.ts",
-    "tests/**/*.tsx"
+    "./src/**/*",
+    "../../src/shared/**/*"
   ],
   "exclude": [
     "node_modules",
@@ -48,5 +46,8 @@
     "coverage",
     "**/*.spec.ts",
     "**/*.test.ts"
+  ],
+  "references": [
+    { "path": "../../tsconfig.shared.json" }
   ]
 }

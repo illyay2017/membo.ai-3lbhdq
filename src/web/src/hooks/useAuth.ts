@@ -5,9 +5,9 @@
  */
 
 import { useEffect, useCallback } from 'react'; // v18.2.0
-import { AuthError } from '@supabase/supabase-js'; // v2.0.0
 import { useAuthStore } from '../store/authStore';
 import { LoginCredentials, RegisterCredentials, UserData } from '../types/auth';
+import { api } from '../lib/api';
 
 // Constants for token refresh and retry configuration
 const REFRESH_INTERVAL = 25 * 60 * 1000; // 25 minutes in milliseconds
@@ -61,9 +61,8 @@ export function useAuth() {
       }, REFRESH_INTERVAL);
 
     } catch (error) {
-      const authError = error as AuthError;
-      setError(authError.message);
-      throw authError;
+      setError(error?.response?.data?.message || 'Login failed');
+      throw error;
     }
   }, [loginUser, refreshUserSession, setError]);
 
@@ -94,9 +93,8 @@ export function useAuth() {
       }, REFRESH_INTERVAL);
 
     } catch (error) {
-      const authError = error as AuthError;
-      setError(authError.message);
-      throw authError;
+      setError(error?.response?.data?.message || 'Registration failed');
+      throw error;
     }
   }, [registerUser, refreshUserSession, setError]);
 
@@ -115,9 +113,8 @@ export function useAuth() {
       await logoutUser();
 
     } catch (error) {
-      const authError = error as AuthError;
-      setError(authError.message);
-      throw authError;
+      setError(error?.response?.data?.message || 'Logout failed');
+      throw error;
     }
   }, [logoutUser, setError]);
 
@@ -149,7 +146,8 @@ export function useAuth() {
       error: null,
       login: loginUser,
       register: registerUser,
-      logout: logoutUser
+      logout: logoutUser,
+      forgotPassword: async () => { throw new Error('Auth loading'); }
     };
   }
 
@@ -160,7 +158,15 @@ export function useAuth() {
     error,
     login: handleLogin,
     register: handleRegister,
-    logout: handleLogout
+    logout: handleLogout,
+    forgotPassword: async (email: string) => {
+      try {
+        await api.post('/auth/forgot-password', { email });
+      } catch (error: any) {
+        setError(error?.response?.data?.message || 'Password reset failed');
+        throw error;
+      }
+    }
   };
 }
 

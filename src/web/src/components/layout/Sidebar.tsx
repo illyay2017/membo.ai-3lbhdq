@@ -9,7 +9,12 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon 
 } from 'lucide-react' // ^0.284.0
-import { Tooltip } from '@radix-ui/react-tooltip' // ^1.0.0
+import { 
+  Provider as TooltipProvider,
+  Root as TooltipRoot,
+  Trigger as TooltipTrigger,
+  Content as TooltipContent
+} from '@radix-ui/react-tooltip'
 
 import { ROUTES } from '../../constants/routes'
 import Button from '../ui/button'
@@ -92,19 +97,19 @@ const NavItem = React.memo<NavItemProps>(({
   )
 
   return isCollapsed ? (
-    <Tooltip.Provider>
-      <Tooltip.Root>
-        <Tooltip.Trigger asChild>
+    <TooltipProvider>
+      <TooltipRoot>
+        <TooltipTrigger asChild>
           {content}
-        </Tooltip.Trigger>
-        <Tooltip.Content
+        </TooltipTrigger>
+        <TooltipContent
           side="right"
           className="px-2 py-1 text-sm bg-secondary-900 text-white rounded"
         >
           {label}
-        </Tooltip.Content>
-      </Tooltip.Root>
-    </Tooltip.Provider>
+        </TooltipContent>
+      </TooltipRoot>
+    </TooltipProvider>
   ) : content
 })
 
@@ -127,7 +132,7 @@ export const Sidebar = React.memo<SidebarProps>(({
         ? (currentIndex + 1) % NAV_ITEMS.length
         : (currentIndex - 1 + NAV_ITEMS.length) % NAV_ITEMS.length
       const nextPath = NAV_ITEMS[nextIndex].path
-      document.querySelector(`a[href="${nextPath}"]`)?.focus()
+      (document.querySelector(`a[href="${nextPath}"]`) as HTMLElement)?.focus()
     }
   }, [location.pathname])
 
