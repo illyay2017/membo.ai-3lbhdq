@@ -4,7 +4,6 @@ import App from './App';
 
 // Import global styles in correct cascade order
 import './styles/globals.css';
-import './styles/tailwind.css';
 
 /**
  * Main function that initializes and renders the React application

@@ -141,6 +141,18 @@ export function useAuth() {
   }, [isAuthenticated, refreshUserSession, handleLogout]);
 
   // Return authentication state and methods
+  if (isLoading) {
+    return {
+      user: null,
+      isAuthenticated: false,
+      isLoading: true,
+      error: null,
+      login: loginUser,
+      register: registerUser,
+      logout: logoutUser
+    };
+  }
+
   return {
     user,
     isAuthenticated,

@@ -11,7 +11,7 @@ import VoiceControls from '../../components/study/VoiceControls';
 import ConfidenceButtons from '../../components/study/ConfidenceButtons';
 import { useStudySession } from '../../hooks/useStudySession';
 import { useWebSocket } from '../../hooks/useWebSocket';
-import { usePerformanceMonitor } from '@membo/performance-monitor'; // v1.0.0
+import { performanceMonitor } from '../../lib/performanceMonitor';
 import { STUDY_MODES, STUDY_MODE_CONFIG } from '../../constants/study';
 import { colors } from '../../constants/theme';
 
@@ -77,7 +77,6 @@ const StudyPage: React.FC<StudyPageProps> = ({
   } = useStudySession();
 
   const { connection } = useWebSocket(session?.id || '');
-  const { trackMetric } = usePerformanceMonitor();
 
   // Local state
   const [showConfidence, setShowConfidence] = useState(false);
@@ -180,6 +179,11 @@ const StudyPage: React.FC<StudyPageProps> = ({
       endSession();
     };
   }, [endSession]);
+
+  // Replace usePerformanceMonitor hook with direct usage
+  const trackMetric = useCallback((name: string, value: number) => {
+    performanceMonitor.trackMetric(name as any, value);
+  }, []);
 
   return (
     <ErrorBoundary

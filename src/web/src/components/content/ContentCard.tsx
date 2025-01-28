@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { cn } from 'class-variance-authority'; // v0.7.0
+import { cn } from '@/lib/utils';
 import { useRoleAccess } from '@auth/hooks'; // v1.0.0
 import { colors } from '@/styles/theme'; // v1.0.0
 import { Card } from '../ui/card';

@@ -7,42 +7,101 @@ Comprehensive documentation for membo.ai's web-based personal knowledge retentio
 - Node.js >= 20.0.0
 - npm >= 9.0.0
 - Git
-- Docker (optional, for containerized development)
+- Docker and Docker Compose
 - Chrome browser (latest version for extension development)
 - Microphone access for voice feature development
 
 ## Getting Started
 
-### Clone Repository
+### Local Development
+1. Clone Repository:
 ```bash
 git clone https://github.com/yourusername/membo-web.git
 cd membo-web
 ```
 
-### Environment Setup
-1. Copy the example environment file:
+2. Copy the example environment file:
 ```bash
 cp .env.example .env
 ```
 
-2. Configure required environment variables:
+3. Configure required environment variables:
 ```env
 VITE_API_URL=http://localhost:4000
 VITE_OPENAI_API_KEY=your_openai_key
 VITE_SUPABASE_URL=your_supabase_url
 VITE_SUPABASE_ANON_KEY=your_supabase_key
 VITE_ENABLE_VOICE=true
+VITE_MIXPANEL_TOKEN=your_mixpanel_token  # Optional - app works without analytics
 ```
 
-3. Install dependencies:
+4. Install dependencies:
 ```bash
 npm install
 ```
 
-4. Generate local SSL certificates (required for voice features):
+5. Generate local SSL certificates (required for voice features):
 ```bash
 npm run generate-certs
 ```
+This creates self-signed certificates for local HTTPS, which is required for microphone access in modern browsers.
+
+Note: When using the certificates, you may need to accept the security warning in your browser since they're self-signed.
+
+### Docker Development
+1. Start the development environment:
+```bash
+docker-compose up web
+```
+The app will be available at `http://localhost:5173`
+
+2. View logs:
+```bash
+docker-compose logs -f web
+```
+
+3. Rebuild after dependencies change:
+```bash
+docker-compose build web
+```
+
+## UI Development
+
+### shadcn/ui Components
+We use [shadcn/ui](https://ui.shadcn.com/) for our component library. It provides:
+- Accessible, customizable components
+- Built with Radix UI and Tailwind CSS
+- Copy and paste components as needed
+
+#### Using Components
+1. Import components from our UI library:
+```typescript
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+```
+
+2. Use the `cn` utility for class merging:
+```typescript
+import { cn } from '@/lib/utils'
+
+function MyComponent({ className, ...props }) {
+  return (
+    <div className={cn(
+      "default classes here",
+      className
+    )} {...props} />
+  )
+}
+```
+
+#### Component Guidelines
+- Use Tailwind CSS for styling
+- Include proper TypeScript types
+- Follow accessibility best practices
+- Use `cn` utility for class merging
+- Follow atomic design principles
+- Include Storybook documentation
+- Ensure accessibility compliance (WCAG 2.1)
 
 ## Available Scripts
 
@@ -124,7 +183,6 @@ src/
 ```bash
 npm run build
 ```
-
 ### Environment Configuration
 - Set NODE_ENV=production
 - Configure CDN endpoints

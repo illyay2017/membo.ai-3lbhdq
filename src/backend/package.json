@@ -64,7 +64,8 @@
     "opossum": "^6.0.0",
     "@types/opossum": "^6.0.4",
     "@types/validator": "^13.7.0",
-    "debug": "^4.3.4"
+    "debug": "^4.3.4",
+    "prom-client": "^14.2.0"
   },
   "devDependencies": {
     "@faker-js/faker": "8.x",

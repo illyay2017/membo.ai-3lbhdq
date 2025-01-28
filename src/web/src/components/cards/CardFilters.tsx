@@ -1,5 +1,5 @@
 import * as React from "react"
-import { cn } from "class-variance-authority"
+import { cn } from "@/lib/utils"
 import Select from "../ui/select"
 import { STUDY_MODES } from "../../constants/study"
 import type { Card } from "../../types/card"

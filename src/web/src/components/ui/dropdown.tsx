@@ -2,8 +2,8 @@ import * as React from "react"
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu"
 import { ChevronDown } from "lucide-react"
 import { useVirtualizer } from "@tanstack/react-virtual"
-import { cn } from "class-variance-authority"
-import Button, { buttonVariants } from "./button"
+import { cn } from "@/lib/utils"
+import Button from "./button"
 import { colors, typography, spacing } from "../../constants/theme"
 
 // Constants for dropdown styling variants

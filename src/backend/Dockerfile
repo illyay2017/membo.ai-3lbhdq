@@ -26,23 +26,12 @@ RUN npm prune --production
 FROM node:20.10-alpine AS development
 WORKDIR /app
 
-# Copy package files
+# Copy package files and install ALL dependencies (including dev dependencies)
 COPY package*.json ./
+RUN npm install
 
-# Install dependencies with proper caching
-RUN npm install -g tsx@4.6.2 typescript@5.3.3 nodemon@3.0.2 && \
-    npm cache clean --force && \
-    npm install --legacy-peer-deps && \
-    npm install reflect-metadata@0.1.13 --save-exact && \
-    npm install tcp-port-used@1.0.2 --save-exact && \
-    npm ls reflect-metadata
-
-# Copy source code after installing dependencies
+# Copy source code
 COPY . .
-
-# Verify the installation
-RUN ls -la node_modules/reflect-metadata && \
-    node -e "require('reflect-metadata')"
 
 ENV NODE_ENV=development
 ENV DEBUG=*

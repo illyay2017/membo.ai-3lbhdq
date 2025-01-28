@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { FixedSizeList as VirtualList } from 'react-window';
 import { ErrorBoundary } from 'react-error-boundary';
 import classNames from 'classnames';
-import { Skeleton } from '@shadcn/ui';
+import { Skeleton } from "../../src/components/ui/skeleton";
 import { Content, ContentStatus } from '../../src/types/content';
 import { getFromExtensionStorage, clearSyncedContent } from '../utils/storage';
 import { getSyncStatus } from '../utils/sync';

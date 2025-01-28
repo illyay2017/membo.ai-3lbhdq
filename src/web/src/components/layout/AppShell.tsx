@@ -1,5 +1,5 @@
 import React, { useState, useLayoutEffect, useCallback } from 'react';
-import { cn } from 'classnames'; // v2.3.2
+import { cn } from '@/lib/utils'; // v2.3.2
 import { ErrorBoundary } from 'react-error-boundary'; // v4.0.0
 
 import Header from './Header';
