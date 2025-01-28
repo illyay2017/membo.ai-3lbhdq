@@ -5,7 +5,7 @@
  */
 
 import * as React from "react";
-import { cn } from "class-variance-authority"; // v0.7.0
+import { cn } from "@/lib/utils";
 import { Button, buttonVariants } from "../ui/button";
 import { useStudySession } from "../../hooks/useStudySession";
 

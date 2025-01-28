@@ -2,7 +2,7 @@ import * as React from 'react';
 import { useEffect, useCallback } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 import { useAnalytics } from '@mixpanel/browser';
-import { cn } from 'class-variance-authority';
+import { cn } from '@/lib/utils';
 
 import ContentList from '../../components/content/ContentList';
 import ContentActions from '../../components/content/ContentActions';

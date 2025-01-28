@@ -1,7 +1,8 @@
 import React, { useEffect, useCallback } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'; // v6.15.0
-import { Analytics } from '@mixpanel/browser'; // v2.45.0
 import { ErrorBoundary } from 'react-error-boundary'; // v4.0.0
+import { useAuth } from './hooks/useAuth';
+import { analytics } from './lib/analytics';
 
 import AppShell from './components/layout/AppShell';
 import { ROUTES } from './constants/routes';
@@ -21,6 +22,7 @@ const ProtectedRoute: React.FC<{
 }> = React.memo(({ children, LoadingComponent = () => <div>Loading...</div> }) => {
   const { isAuthenticated, sessionError, refreshUserSession } = useAuthStore();
   const location = useLocation();
+  const analyticsEnabled = !!import.meta.env.VITE_MIXPANEL_TOKEN;
 
   // Handle session refresh errors
   useEffect(() => {
@@ -29,15 +31,16 @@ const ProtectedRoute: React.FC<{
     }
   }, [sessionError]);
 
-  // Track protected route access
+  // Track protected route access using analytics wrapper
   useEffect(() => {
-    if (isAuthenticated) {
-      Analytics.track('Protected Route Access', {
+    if (isAuthenticated && analyticsEnabled) {
+      analytics.trackCardInteraction({
+        type: 'route_access',
         path: location.pathname,
         timestamp: Date.now()
       });
     }
-  }, [location.pathname, isAuthenticated]);
+  }, [location.pathname, isAuthenticated, analyticsEnabled]);
 
   if (!isAuthenticated) {
     return <Navigate to={ROUTES.AUTH.LOGIN} state={{ from: location }} replace />;
@@ -75,8 +78,45 @@ const ErrorFallback: React.FC<{ error: Error }> = ({ error }) => (
  * and responsive layout structure
  */
 const App: React.FC = React.memo(() => {
-  const { isAuthenticated, refreshUserSession } = useAuthStore();
+  const { isLoading, isAuthenticated, user } = useAuth();
+  const { refreshUserSession } = useAuthStore();
   const location = useLocation();
+  const analyticsEnabled = !!import.meta.env.VITE_MIXPANEL_TOKEN;
+
+  // Initialize analytics only if token exists
+  const mixpanelToken = import.meta.env.VITE_MIXPANEL_TOKEN;
+
+  useEffect(() => {
+    if (!isLoading && analyticsEnabled) {
+      try {
+        analytics.initializeAnalytics(mixpanelToken, {
+          enableTracking: true,
+          privacySettings: {
+            gdprCompliance: true
+          }
+        });
+      } catch (error) {
+        console.warn('Analytics initialization skipped:', error);
+      }
+    }
+  }, [isLoading, analyticsEnabled]);
+
+  // Only track events if analytics is enabled
+  useEffect(() => {
+    if (analyticsEnabled && !isLoading && isAuthenticated && user) {
+      analytics.trackUserLogin(user);
+    }
+  }, [isLoading, isAuthenticated, user, analyticsEnabled]);
+
+  useEffect(() => {
+    if (analyticsEnabled && !isLoading && isAuthenticated) {
+      analytics.trackCardInteraction({
+        type: 'page_view',
+        path: location.pathname,
+        timestamp: Date.now()
+      });
+    }
+  }, [location.pathname, isLoading, isAuthenticated, analyticsEnabled]);
 
   // Initialize session refresh interval
   useEffect(() => {
@@ -110,11 +150,14 @@ const App: React.FC = React.memo(() => {
 
   // Track route changes
   useEffect(() => {
-    Analytics.track('Page View', {
-      path: location.pathname,
-      timestamp: Date.now()
-    });
-  }, [location.pathname]);
+    if (analyticsEnabled) {
+      analytics.trackCardInteraction({
+        type: 'route_access',
+        path: location.pathname,
+        timestamp: Date.now()
+      });
+    }
+  }, [location.pathname, isLoading, isAuthenticated, analyticsEnabled]);
 
   return (
     <ErrorBoundary FallbackComponent={ErrorFallback}>

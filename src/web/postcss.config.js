@@ -7,8 +7,7 @@
 export default {
   plugins: {
     'postcss-import': {},
-    'tailwindcss': {},
-    'autoprefixer': {},
-    'postcss-nesting': {},
+    'tailwindcss': { config: './tailwind.config.ts' },
+    'autoprefixer': {}
   }
 };

@@ -1,5 +1,5 @@
 import React from 'react';
-import { cn } from 'class-variance-authority';
+import { cn } from '@/lib/utils';
 import { colors } from '../../constants/theme';
 
 // Progress bar variant types

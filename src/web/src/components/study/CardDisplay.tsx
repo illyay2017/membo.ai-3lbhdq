@@ -6,7 +6,7 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
 import { useErrorBoundary } from 'react-error-boundary'; // v4.0.11
-import { cn } from 'class-variance-authority'; // v0.7.0
+import { cn } from '@/lib/utils';
 import { Card } from '../../types/card';
 import VoiceControls from './VoiceControls';
 import ConfidenceButtons from './ConfidenceButtons';

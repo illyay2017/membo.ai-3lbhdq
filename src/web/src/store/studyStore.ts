@@ -10,13 +10,13 @@ import { devtools, persist } from 'zustand/middleware';
 import { StudySession, StudyPerformance, StudySessionSettings } from '../types/study';
 import { STUDY_MODES } from '../constants/study';
 import { StudyService } from '../services/studyService';
-import { VoiceService } from '../services/voiceService';
+import { voiceService } from '../services/voiceService';
 import { Card } from '../types/card';
 import { VoiceRecognitionState } from '../types/voice';
+import { useAuth } from '../hooks/useAuth';
 
 // Initialize services
 const studyService = new StudyService();
-const voiceService = new VoiceService();
 
 /**
  * Interface defining the study store state
@@ -54,6 +54,7 @@ interface StudyActions {
     updatePerformance: (metrics: Partial<StudyPerformance>) => void;
     syncWithServer: () => Promise<void>;
     setOfflineMode: (offline: boolean) => void;
+    init: () => Promise<void>;
 }
 
 /**
@@ -275,7 +276,16 @@ export const useStudyStore = create<StudyState & StudyActions>()(
                 },
 
                 setOfflineMode: (offline: boolean) => 
-                    set({ offlineMode: offline })
+                    set({ offlineMode: offline }),
+
+                init: async () => {
+                    const { user } = useAuth();
+                    const token = user?.tokens?.accessToken;
+                    
+                    if (token) {
+                        await get().studyService?.updateAuthToken(token);
+                    }
+                }
             }),
             {
                 name: 'study-store',

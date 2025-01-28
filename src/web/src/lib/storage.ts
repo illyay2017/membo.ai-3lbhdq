@@ -249,7 +249,7 @@ function validateTokenStructure(tokens: any): tokens is AuthTokens {
 /**
  * Clears authentication tokens from storage
  */
-function clearAuthTokens(): void {
+export function clearAuthTokens(): void {
     localStorage.removeItem(STORAGE_KEYS.AUTH_TOKENS);
     localStorage.removeItem(STORAGE_KEYS.ENCRYPTION_KEY);
     localStorage.removeItem('tokenExpiry');
@@ -277,4 +277,12 @@ async function clearStorage(): Promise<void> {
         transaction.objectStore('content').clear();
         transaction.objectStore('metadata').clear();
     }
+}
+
+/**
+ * Stores user preferences securely
+ * @param preferences User preferences to store
+ */
+export function setUserPreferences(preferences: Record<string, unknown>): void {
+    localStorage.setItem(STORAGE_KEYS.USER_PREFERENCES, JSON.stringify(preferences));
 }

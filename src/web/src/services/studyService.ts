@@ -8,7 +8,7 @@
 import { StudySession, StudyPerformance, FSRSProgress, StudySessionSettings } from '../types/study';
 import { api } from '../lib/api';
 import { WebSocketManager, WS_EVENTS } from '../lib/websocket';
-import { VoiceService } from './voiceService';
+import { voiceService } from './voiceService';
 import { Card } from '../types/card';
 import { STUDY_MODES, FSRS_CONFIG, CONFIDENCE_LEVELS } from '../constants/study';
 
@@ -35,21 +35,15 @@ const DEFAULT_STUDY_SETTINGS: StudySessionSettings = {
  * StudyService class implementing comprehensive study session management
  */
 export class StudyService {
-    private wsManager: WebSocketManager;
-    private voiceService: VoiceService;
+    private wsManager: WebSocketManager | null = null;
+    private voiceService: typeof voiceService;
     private currentSession: StudySession | null = null;
     private performanceMetrics: Map<string, StudyPerformance> = new Map();
     private offlineSupport: boolean = true;
     private retryAttempts: number = 3;
 
-    /**
-     * Initialize study service with required dependencies
-     * @param authToken JWT authentication token
-     */
-    constructor(authToken: string) {
-        this.wsManager = new WebSocketManager(authToken);
-        this.voiceService = new VoiceService();
-        this.initializeWebSocket();
+    constructor() {
+        this.voiceService = voiceService;
     }
 
     /**
@@ -81,10 +75,7 @@ export class StudyService {
             }
 
             // Setup WebSocket connection for real-time updates
-            await this.wsManager.send(WS_EVENTS.STUDY_UPDATE, {
-                type: 'SESSION_START',
-                sessionId: response.id
-            });
+            await this.initializeWebSocket(response.authToken);
 
             return response;
         } catch (error) {
@@ -121,7 +112,7 @@ export class StudyService {
             );
 
             // Notify WebSocket of session end
-            await this.wsManager.send(WS_EVENTS.STUDY_UPDATE, {
+            await this.wsManager?.send(WS_EVENTS.STUDY_UPDATE, {
                 type: 'SESSION_END',
                 sessionId: this.currentSession.id,
                 metrics: finalMetrics
@@ -169,7 +160,7 @@ export class StudyService {
             });
 
             // Send real-time update
-            await this.wsManager.send(WS_EVENTS.STUDY_UPDATE, {
+            await this.wsManager?.send(WS_EVENTS.STUDY_UPDATE, {
                 type: 'CARD_REVIEW',
                 ...reviewData,
                 fsrsProgress
@@ -282,20 +273,22 @@ export class StudyService {
     }
 
     /**
-     * Initializes WebSocket connection for real-time updates
+     * Initialize WebSocket connection with auth token
      */
-    private async initializeWebSocket(): Promise<void> {
+    private async initializeWebSocket(authToken: string): Promise<void> {
         try {
-            await this.wsManager.connect();
+            if (!this.wsManager && authToken) {
+                this.wsManager = new WebSocketManager(authToken);
+                await this.wsManager.connect();
 
-            this.wsManager.on(WS_EVENTS.STUDY_UPDATE, (data) => {
-                if (this.currentSession) {
-                    this.handleStudyUpdate(data);
-                }
-            });
+                this.wsManager.on(WS_EVENTS.STUDY_UPDATE, (data) => {
+                    if (this.currentSession) {
+                        this.handleStudyUpdate(data);
+                    }
+                });
+            }
         } catch (error) {
             console.error('Failed to initialize WebSocket:', error);
-            // Continue without real-time updates
             this.offlineSupport = true;
         }
     }
@@ -369,6 +362,13 @@ export class StudyService {
         } catch (error) {
             console.error('Failed to calculate study streak:', error);
             return 0;
+        }
+    }
+
+    // Add method to update auth token
+    public async updateAuthToken(token: string): Promise<void> {
+        if (token) {
+            await this.initializeWebSocket(token);
         }
     }
 }

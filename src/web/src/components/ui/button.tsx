@@ -1,6 +1,7 @@
 import * as React from "react"
 import { Slot } from "@radix-ui/react-slot" // v1.0.0
-import { cn } from "class-variance-authority" // v0.7.0
+import { cva, type VariantProps } from "class-variance-authority" // v0.7.0
+// import { cn } from "@/lib/utils"  // Use local cn utility
 import { colors } from "../../constants/theme"
 
 // Button variant and size constants based on design system
@@ -25,19 +26,28 @@ interface ButtonVariantProps {
 }
 
 // Generate button classes based on variants
-export const buttonVariants = ({ variant = "primary", size = "md", className }: ButtonVariantProps) => {
-  return cn(
-    // Base button styles
-    "inline-flex items-center justify-center rounded-md font-medium transition-colors",
-    "focus:outline-none focus:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
-    // Apply variant styles
-    BUTTON_VARIANTS[variant],
-    // Apply size styles
-    BUTTON_SIZES[size],
-    // Apply custom className if provided
-    className
-  )
-}
+const buttonVariants = cva(
+  "inline-flex items-center justify-center rounded-md font-medium transition-colors",
+  {
+    variants: {
+      variant: {
+        primary: `bg-[${colors.primary}] text-white hover:bg-[${colors.primary}]/90`,
+        secondary: `bg-[${colors.secondary}] text-white hover:bg-[${colors.secondary}]/90`,
+        outline: `border-2 border-[${colors.primary}] text-[${colors.primary}] hover:bg-[${colors.primary}]/10 focus:ring-2 focus:ring-[${colors.primary}]/50`,
+        ghost: `text-[${colors.primary}] hover:bg-[${colors.primary}]/10 focus:ring-2 focus:ring-[${colors.primary}]/50`
+      },
+      size: {
+        sm: "px-3 py-1.5 text-sm",
+        md: "px-4 py-2 text-base",
+        lg: "px-6 py-3 text-lg"
+      }
+    },
+    defaultVariants: {
+      variant: "primary",
+      size: "md"
+    }
+  }
+)
 
 // Button component props interface
 export interface ButtonProps
@@ -111,4 +121,5 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 // Display name for React DevTools
 Button.displayName = "Button"
 
+export { Button, buttonVariants }  // Add buttonVariants to exports
 export default Button

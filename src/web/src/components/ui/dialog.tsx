@@ -1,7 +1,7 @@
 import * as React from "react"
 import * as DialogPrimitive from "@radix-ui/react-dialog" // v1.0.0
 import { X } from "lucide-react" // v0.284.0
-import { cn } from "class-variance-authority" // v0.7.0
+import { cn } from "@/lib/utils"
 import Button from "./button"
 import { colors } from "../../constants/theme"
 

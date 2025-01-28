@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ErrorBoundary } from 'react-error-boundary'; // v4.0.0
 import { useVirtualizer } from '@tanstack/react-virtual'; // v3.0.0
-import { cn } from 'class-variance-authority'; // v0.7.0
+import { cn } from '@/lib/utils'; // Use local cn utility
 import CardPreview from './CardPreview';
 import { Card } from '../../types/card';
 import { useCards } from '../../hooks/useCards';

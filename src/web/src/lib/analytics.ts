@@ -35,7 +35,7 @@ const PERFORMANCE_THRESHOLDS = {
  */
 const PRIVACY_SETTINGS = {
     dataRetentionDays: 90,
-    piiFields: ['email', 'firstName', 'lastName'],
+    piiFields: ['email', 'firstName', 'lastName'] as string[],
     ipAnonymization: true,
     gdprCompliance: true,
 } as const;
@@ -90,7 +90,8 @@ function initializeAnalytics(projectToken: string, config: AnalyticsConfig): voi
  */
 function anonymizeUserData(userData: UserData): Partial<UserData> {
     const { id, role } = userData;
-    return { id: mixpanel.hash(id), role };
+    const hashedId = btoa(id).replace(/[^a-zA-Z0-9]/g, '');
+    return { id: hashedId, role };
 }
 
 /**

@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react'
 import { Link, useLocation } from 'react-router-dom' // ^6.0.0
-import { cn } from 'classnames' // ^2.3.2
+import { cn } from '@/lib/utils' // v2.3.2
 import { 
   InboxIcon, 
   BookOpenIcon, 

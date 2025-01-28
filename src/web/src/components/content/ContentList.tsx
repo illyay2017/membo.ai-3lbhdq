@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useInView } from 'react-intersection-observer'; // v9.5.2
 import { useVirtualizer } from '@tanstack/react-virtual'; // v3.0.0
-import { cn } from 'class-variance-authority'; // v0.7.0
+import { cn } from '@/lib/utils';
 
 import ContentCard from './ContentCard';
 import ContentFilters from './ContentFilters';

@@ -1,4 +1,4 @@
-import { EventEmitter } from 'events';
+import { EventEmitter } from './events';
 import { API_BASE_URL } from '../constants/api';
 
 /**
@@ -90,6 +90,11 @@ export class WebSocketManager {
    */
   public async connect(): Promise<void> {
     return new Promise((resolve, reject) => {
+      if (!this.authToken) {
+        reject(new Error('Authentication token is required for WebSocket connection'));
+        return;
+      }
+
       const wsUrl = `${API_BASE_URL.replace('http', 'ws')}/ws?token=${this.authToken}`;
       this.ws = new WebSocket(wsUrl);
 

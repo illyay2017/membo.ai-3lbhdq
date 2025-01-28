@@ -3,16 +3,43 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    develop:
+      watch:
+        - action: sync
+          path: ./src
+          target: /app/src
+          ignore:
+            - node_modules/
+            - dist/
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     ports:
       - "5173:5173"
+      - "5173:5173/tcp"
     volumes:
-      - .:/app
+      - ./public:/app/public
+      - ./index.html:/app/index.html
+      - ./package.json:/app/package.json
+      - ./tsconfig.json:/app/tsconfig.json
+      - ./vite.config.ts:/app/vite.config.ts
       - /app/node_modules
     environment:
       - NODE_ENV=development
       - VITE_API_URL=http://localhost:4001
+      - CHOKIDAR_USEPOLLING=true
+      - WATCHPACK_POLLING=true
+      - VITE_WATCH_POLL=true
+      - VITE_DEV_SERVER_HOST=0.0.0.0
+      - VITE_DEV_SERVER_PORT=5173
+      - VITE_HMR_HOST=0.0.0.0
+      - VITE_HMR_PORT=5173
     networks:
       - membo_network
+    stdin_open: true
+    tty: true
 
 networks:
   membo_network:

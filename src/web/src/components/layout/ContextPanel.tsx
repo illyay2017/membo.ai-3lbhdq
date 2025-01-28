@@ -1,5 +1,5 @@
 import React, { useMemo, useCallback } from 'react';
-import { classNames } from 'classnames'; // v2.3.2
+import { cn } from '@/lib/utils'; // Use local cn utility
 import { Button, buttonVariants } from '../ui/button';
 import StudyStats from '../study/StudyStats';
 import ProgressBar from '../study/ProgressBar';
@@ -74,7 +74,7 @@ const ContextPanel: React.FC<ContextPanelProps> = ({
         <Button
           key={action.id}
           onClick={action.onClick}
-          className={classNames(
+          className={cn(
             buttonVariants({ variant: action.variant }),
             'w-full justify-start'
           )}
@@ -116,7 +116,7 @@ const ContextPanel: React.FC<ContextPanelProps> = ({
   ), [session?.cardsStudied]);
 
   // Container classes with responsive design
-  const containerClasses = classNames(
+  const containerClasses = cn(
     'fixed right-0 top-16 bottom-0 w-64 lg:w-80',
     'bg-white dark:bg-gray-800',
     'border-l border-gray-200 dark:border-gray-700',

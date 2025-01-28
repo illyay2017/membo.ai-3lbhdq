@@ -1,6 +1,6 @@
 import React from 'react';
 import { ErrorBoundary } from 'react-error-boundary'; // v4.0.0
-import { cn } from 'class-variance-authority'; // v0.7.0
+import { cn } from '@/lib/utils';  // Use local cn utility
 import { Card as CardComponent } from '../ui/card';
 import type { Card } from '../../types/card';
 
