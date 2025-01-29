@@ -115,13 +115,29 @@ export class AuthController {
       
       const result = await this.authService.login(email, password);
       
+      // Transform the response to match client expectations
+      const response = {
+        user: {
+          id: result.user.id,
+          email: result.user.email,
+          role: result.user.role,
+          preferences: result.user.preferences,
+          version: result.user.version,
+          lastAccess: result.user.lastAccess
+        },
+        tokens: {
+          accessToken: result.session.access_token,
+          refreshToken: result.session.refresh_token
+        }
+      };
+
       console.log('Sending response:', {
         status: 200,
         user: result.user.id,
         tokensPresent: !!result.session
       });
 
-      res.status(200).json(result);
+      res.status(200).json(response);
     } catch (error) {
       console.error('Login error:', error);
       
