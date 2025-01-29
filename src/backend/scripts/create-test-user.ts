@@ -17,6 +17,14 @@ async function createTestUser() {
             process.env.SUPABASE_SERVICE_ROLE_KEY!
         );
 
+        // First check if user exists and delete if necessary
+        const { data: existingUser } = await supabase.auth.admin.listUsers();
+        const userToDelete = existingUser?.users.find(u => u.email === 'test2@membo.ai');
+        if (userToDelete) {
+            await supabase.auth.admin.deleteUser(userToDelete.id);
+            console.log('Deleted existing user');
+        }
+
         // Create auth user with metadata
         const { data: authData, error: authError } = await supabase.auth.admin.createUser({
             email: 'test2@membo.ai',
@@ -34,8 +42,16 @@ async function createTestUser() {
             return false;
         }
 
+        // Log the created user details
+        console.log('Created auth user:', {
+            id: authData.user.id,
+            email: authData.user.email,
+            metadata: authData.user.user_metadata,
+            emailConfirmed: authData.user.email_confirmed_at
+        });
+
         // Wait a moment for trigger to complete
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 2000));
 
         // Get the created user to verify
         const { data: { user }, error: getUserError } = await supabase.auth.admin.getUserById(
@@ -51,7 +67,7 @@ async function createTestUser() {
         const { data: publicUser, error: dbError } = await supabase
             .from('users')
             .select('*')
-            .eq('id', user.id)
+            .eq('id', authData.user.id)
             .single();
 
         if (dbError) {
@@ -60,11 +76,10 @@ async function createTestUser() {
         }
 
         console.log('Successfully created user:', {
-            id: user.id,
-            email: user.email,
-            metadata: user.user_metadata,
-            role: publicUser.role,
-            preferences: publicUser.preferences
+            id: authData.user.id,
+            email: authData.user.email,
+            metadata: authData.user.user_metadata,
+            publicUser
         });
 
         return true;

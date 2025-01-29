@@ -6,7 +6,18 @@
 
 import { UserRole } from '@/constants/userRoles';
 import { IUserPreferences } from '@/interfaces/IUser';
-import { createClient, SupabaseClient } from '@supabase/supabase-js'; // v2.39.0
+import { createClient } from '@supabase/supabase-js'; // v2.39.0
+
+// Create a simple storage implementation for auth client compatibility
+const memoryStorage = (() => {
+  const store = new Map<string, string>();
+  return {
+    getItem: (key: string): string | null => store.get(`_${key}`) || null,
+    setItem: (key: string, value: string): void => { store.set(`_${key}`, value); },
+    removeItem: (key: string): void => { store.delete(`_${key}`); },
+    clear: (): void => { store.clear(); }
+  };
+})();
 
 /**
  * Validates required Supabase environment variables
@@ -52,40 +63,27 @@ const validateEnvironmentVariables = (): void => {
 };
 
 /**
- * Creates and configures a Supabase client instance with enhanced security and monitoring
- * @returns {SupabaseClient} Configured Supabase client instance
+ * Creates and configures a Supabase client instance
  */
-const createSupabaseClient = (): SupabaseClient => {
-  validateEnvironmentVariables();
+export function createSupabaseClient(useServiceRole = false) {
+  const { 
+    SUPABASE_URL, 
+    SUPABASE_ANON_KEY, 
+    SUPABASE_SERVICE_ROLE_KEY 
+  } = process.env;
+
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error('Missing required Supabase environment variables');
+  }
 
   // Transform URL for Docker networking
-  const supabaseUrl = process.env.SUPABASE_URL!.replace(
-    'localhost', 
-    'host.docker.internal'
-  );
-  const supabaseKey = process.env.SUPABASE_ANON_KEY!;
+  const supabaseUrl = SUPABASE_URL.replace('localhost', 'host.docker.internal');
+  const supabaseKey = useServiceRole ? SUPABASE_SERVICE_ROLE_KEY : SUPABASE_ANON_KEY;
 
-  console.log('Creating Supabase client with transformed URL:', {
-    originalUrl: process.env.SUPABASE_URL,
-    transformedUrl: supabaseUrl,
-    keyLength: supabaseKey?.length || 0
-  });
-
-  // Create a simple storage implementation
-  const memoryStorage = (() => {
-    const store = new Map<string, string>();
-    return {
-      getItem: (key: string): string | null => store.get(`_${key}`) || null,
-      setItem: (key: string, value: string): void => { store.set(`_${key}`, value); },
-      removeItem: (key: string): void => { store.delete(`_${key}`); },
-      clear: (): void => { store.clear(); }
-    };
-  })();
-
-  const client = createClient(supabaseUrl, supabaseKey, {
+  return createClient(supabaseUrl, supabaseKey, {
     auth: {
-      autoRefreshToken: true,
-      persistSession: true,
+      autoRefreshToken: false,
+      persistSession: false,
       detectSessionInUrl: false,
       storage: memoryStorage
     },
@@ -95,30 +93,22 @@ const createSupabaseClient = (): SupabaseClient => {
     global: {
       headers: {
         'x-application-name': 'membo.ai',
-        'x-client-version': '1.0.0',
-        'x-request-timeout': '5000'
+        'x-client-version': '1.0.0'
       }
-    },
-    realtime: {
-      timeout: 30000
     }
   });
+}
 
-  return client;
-};
-
-/**
- * Singleton Supabase client instance with enhanced security and monitoring
- * @exports
- * @constant
- * @type {SupabaseClient}
- */
+// Create default instance for general use
 const supabase = createSupabaseClient();
-
-// Prevent modifications to the client instance
 Object.freeze(supabase);
 
 export default supabase;
+
+// Helper for auth operations needing service role
+export function getServiceClient() {
+  return createSupabaseClient(true);
+}
 
 /**
  * Type-safe database interface
@@ -142,14 +132,8 @@ export type Database = {
       };
       // ... other tables
     };
-    Views: {
-      // Add your view definitions here
-    };
-    Functions: {
-      // Add your function definitions here
-    };
-    Enums: {
-      // Add your enum definitions here
-    };
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
+    Enums: Record<string, never>;
   };
 };

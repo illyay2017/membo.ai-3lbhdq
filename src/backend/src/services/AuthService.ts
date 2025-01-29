@@ -8,7 +8,7 @@ import { createClient } from 'redis'; // v4.6.8
 import { IUser, IUserPreferences } from '../interfaces/IUser';
 import { User } from '../models/User';
 import * as TokenUtils from '../utils/jwt';
-import supabase from '../config/supabase';  // Use our configured client
+import { createSupabaseClient } from '../config/supabase';
 import { UserRole } from '@/constants/userRoles';
 
 /**
@@ -48,7 +48,6 @@ export class AuthService {
   private readonly TOKEN_BLACKLIST_PREFIX = 'token:blacklist:';
   private readonly RATE_LIMIT_PREFIX = 'rate:limit:';
   private readonly REFRESH_TOKEN_PREFIX = 'refresh:token:';
-  private supabase;
 
   constructor() {
     this.redisClient = createClient({
@@ -61,12 +60,6 @@ export class AuthService {
 
     this.redisClient.connect().catch(console.error);
     this.setupTokenCleanup();
-
-    // Configure Supabase client with better session handling
-    this.supabase = supabase.auth.setSession({
-      refresh_token_threshold: 60, // Refresh token 1 minute before expiry
-      persistSession: false // We handle persistence ourselves
-    });
 
     console.log('AuthService initialized');
   }
@@ -116,14 +109,28 @@ export class AuthService {
         hasPassword: !!password 
       });
 
-      // Use our configured Supabase client
+      // Create client with service role for auth operations
+      const supabase = createSupabaseClient(true);
+
+      // Use the new client instance
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password
       });
 
+      // Add detailed logging of the Supabase response
+      console.log('Supabase auth response:', {
+        hasAuthData: !!authData,
+        hasSession: !!authData?.session,
+        hasUser: !!authData?.user,
+        error: authError?.message,
+        status: authError?.status
+      });
+
       if (authError) throw new Error(authError.message);
-      if (!authData?.user) throw new Error('No user returned from auth');
+      if (!authData?.user || !authData?.session) {
+        throw new Error('Invalid authentication response');
+      }
 
       // Get additional user data from public.users if needed
       const { data: userData, error: userError } = await supabase
@@ -132,14 +139,20 @@ export class AuthService {
         .eq('id', authData.user.id)
         .single();
 
-      if (userError) throw new Error(userError.message);
+      console.log('User data query result:', {
+        hasUserData: !!userData,
+        error: userError?.message,
+        userFields: userData ? Object.keys(userData) : []
+      });
+
+      if (userError || !userData) {
+        throw new Error('User data not found');
+      }
 
       // Keep our existing rate limiting
       await this.checkRateLimit(email);
 
-      // Store refresh token using our existing mechanism
-      await this.storeRefreshToken(authData.user.id, authData.session.refresh_token);
-
+      // Return the response without storing the session
       return {
         user: {
           id: authData.user.id,
@@ -149,8 +162,10 @@ export class AuthService {
           version: userData.version,
           lastAccess: new Date(userData.last_access)
         },
-        token: authData.session.access_token,
-        refreshToken: authData.session.refresh_token
+        session: {
+          access_token: authData.session.access_token,
+          refresh_token: authData.session.refresh_token
+        }
       };
 
     } catch (error) {

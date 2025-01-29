@@ -113,3 +113,24 @@ export const createErrorDetails = (
     instance
   };
 };
+
+export const AUTH_ERRORS = {
+  INVALID_CREDENTIALS: {
+    type: 'https://api.membo.ai/problems/auth/invalid-credentials',
+    title: 'Invalid credentials',
+    status: 401,
+    detail: 'The provided email or password is incorrect'
+  },
+  ACCOUNT_LOCKED: {
+    type: 'https://api.membo.ai/problems/auth/account-locked',
+    title: 'Account locked',
+    status: 401,
+    detail: 'Account is temporarily locked due to too many failed attempts'
+  },
+  USER_NOT_FOUND: {
+    type: 'https://api.membo.ai/problems/auth/user-not-found',
+    title: 'User not found',
+    status: 401,
+    detail: 'No user found with the provided email'
+  }
+} as const;
