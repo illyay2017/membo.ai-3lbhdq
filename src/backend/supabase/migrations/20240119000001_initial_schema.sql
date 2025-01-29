@@ -30,6 +30,9 @@ CREATE TABLE users (
     role user_role NOT NULL DEFAULT 'FREE_USER',
     preferences jsonb DEFAULT '{}'::jsonb,
     created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now(),
+    version integer NOT NULL DEFAULT 1,
+    last_access timestamptz DEFAULT now(),
     CONSTRAINT valid_preferences CHECK (
         jsonb_typeof(preferences) = 'object' AND
         (preferences->>'studyMode')::text IN ('STANDARD', 'VOICE', 'QUIZ') AND
@@ -59,19 +62,30 @@ CREATE TABLE content (
 
 CREATE TABLE cards (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    content_id UUID REFERENCES content(id) ON DELETE SET NULL,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    content_id UUID REFERENCES content(id) ON DELETE CASCADE,
     front_content JSONB NOT NULL,
     back_content JSONB NOT NULL,
-    fsrs_data JSONB NOT NULL DEFAULT '{"stability": 0, "difficulty": 0}',
-    tags TEXT[] DEFAULT ARRAY[]::TEXT[],
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    next_review TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    last_reviewed_at TIMESTAMP WITH TIME ZONE,
-    review_count INTEGER NOT NULL DEFAULT 0,
+    fsrs_data JSONB NOT NULL DEFAULT '{
+        "stability": 0.5,
+        "difficulty": 0.3,
+        "reviewCount": 0,
+        "lastReview": null,
+        "lastRating": 0
+    }',
+    next_review TIMESTAMP WITH TIME ZONE NOT NULL,
+    compatible_modes TEXT[] NOT NULL DEFAULT '{STANDARD}',
+    tags TEXT[] NOT NULL DEFAULT '{}',
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     CONSTRAINT valid_fsrs_data CHECK (
         jsonb_typeof(fsrs_data->'stability') = 'number' AND
-        jsonb_typeof(fsrs_data->'difficulty') = 'number'
+        jsonb_typeof(fsrs_data->'difficulty') = 'number' AND
+        jsonb_typeof(fsrs_data->'reviewCount') = 'number' AND
+        (
+            fsrs_data->>'lastReview' IS NULL OR 
+            jsonb_typeof(fsrs_data->'lastReview') = 'string'
+        ) AND
+        jsonb_typeof(fsrs_data->'lastRating') = 'number'
     )
 );
 
@@ -192,12 +206,20 @@ BEGIN
         )
     );
 
-    -- Insert the user record
-    INSERT INTO public.users (id, role, preferences)
+    -- Insert the user record with version and last_access
+    INSERT INTO public.users (
+        id, 
+        role, 
+        preferences,
+        version,
+        last_access
+    )
     VALUES (
         NEW.id,
         COALESCE((NEW.raw_app_meta_data->>'role')::user_role, 'FREE_USER'),
-        user_preferences
+        user_preferences,
+        1,
+        CURRENT_TIMESTAMP
     );
     RETURN NEW;
 END;
@@ -208,3 +230,43 @@ CREATE TRIGGER on_auth_user_created
     AFTER INSERT ON auth.users
     FOR EACH ROW
     EXECUTE FUNCTION public.handle_new_user();
+
+-- At the start of the migration, ensure auth schema exists
+CREATE SCHEMA IF NOT EXISTS auth;
+
+-- Ensure the auth.users table exists with correct structure
+CREATE TABLE IF NOT EXISTS auth.users (
+    instance_id uuid,
+    id uuid NOT NULL PRIMARY KEY,
+    aud character varying(255),
+    role character varying(255),
+    email character varying(255),
+    encrypted_password character varying(255),
+    email_confirmed_at timestamp with time zone,
+    invited_at timestamp with time zone,
+    confirmation_token character varying(255),
+    confirmation_sent_at timestamp with time zone,
+    recovery_token character varying(255),
+    recovery_sent_at timestamp with time zone,
+    email_change_token_new character varying(255),
+    email_change character varying(255),
+    email_change_sent_at timestamp with time zone,
+    last_sign_in_at timestamp with time zone,
+    raw_app_meta_data jsonb,
+    raw_user_meta_data jsonb,
+    is_super_admin boolean,
+    created_at timestamp with time zone,
+    updated_at timestamp with time zone,
+    phone text DEFAULT NULL::text,
+    phone_confirmed_at timestamp with time zone,
+    phone_change text DEFAULT ''::text,
+    phone_change_token character varying(255) DEFAULT ''::character varying,
+    phone_change_sent_at timestamp with time zone,
+    confirmed_at timestamp with time zone GENERATED ALWAYS AS (LEAST(email_confirmed_at, phone_confirmed_at)) STORED,
+    email_change_token_current character varying(255) DEFAULT ''::character varying,
+    email_change_confirm_status smallint DEFAULT 0,
+    banned_until timestamp with time zone,
+    reauthentication_token character varying(255) DEFAULT ''::character varying,
+    reauthentication_sent_at timestamp with time zone,
+    is_sso_user boolean DEFAULT false
+);

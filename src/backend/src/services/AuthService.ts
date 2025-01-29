@@ -7,15 +7,24 @@
 import bcrypt from 'bcrypt'; // v5.1.1
 import { createClient } from 'redis'; // v4.6.8
 import crypto from 'crypto'; // v1.0.1
-import { IUser } from '../interfaces/IUser';
+import { IUser, IUserPreferences } from '../interfaces/IUser';
 import { User } from '../models/User';
 import * as TokenUtils from '../utils/jwt';
+import supabase from '../config/supabase';  // Use our configured client
+import { UserRole } from '@/constants/userRoles';
 
 /**
  * Interface for authentication response
  */
 interface AuthResponse {
-  user: IUser;
+  user: {
+    id: string;
+    email: string;
+    role: UserRole;  // Use enum instead of string
+    preferences: IUserPreferences;  // Use proper interface
+    version: number;  // Make required
+    lastAccess: Date;  // Make required
+  };
   token: string;
   refreshToken: string;
 }
@@ -93,26 +102,48 @@ export class AuthService {
    */
   public async login(email: string, password: string): Promise<AuthResponse> {
     try {
-      console.log('AuthService.login called with:', { email, hasPassword: !!password });
-      // Check rate limiting
+      console.log('AuthService.login called with:', { 
+        email, 
+        hasPassword: !!password 
+      });
+
+      // Use our configured Supabase client
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (authError) throw new Error(authError.message);
+      if (!authData?.user) throw new Error('No user returned from auth');
+
+      // Get additional user data from public.users if needed
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('role, preferences, version, last_access')
+        .eq('id', authData.user.id)
+        .single();
+
+      if (userError) throw new Error(userError.message);
+
+      // Keep our existing rate limiting
       await this.checkRateLimit(email);
 
-      // Authenticate user
-      const user = await User.authenticate(email, password);
-      if (!user) {
-        throw new Error('Invalid credentials');
-      }
+      // Store refresh token using our existing mechanism
+      await this.storeRefreshToken(authData.user.id, authData.session.refresh_token);
 
-      // Generate authentication tokens
-      const [token, refreshToken] = await Promise.all([
-        TokenUtils.generateToken(user),
-        TokenUtils.generateRefreshToken(user)
-      ]);
+      return {
+        user: {
+          id: authData.user.id,
+          email: authData.user.email!,
+          role: userData.role,
+          preferences: userData.preferences,
+          version: userData.version,
+          lastAccess: new Date(userData.last_access)
+        },
+        token: authData.session.access_token,
+        refreshToken: authData.session.refresh_token
+      };
 
-      // Store refresh token
-      await this.storeRefreshToken(user.id, refreshToken);
-
-      return { user, token, refreshToken };
     } catch (error) {
       console.error('AuthService.login error:', error);
       throw new Error(`Authentication failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -188,7 +219,11 @@ export class AuthService {
         throw new Error('Token has been revoked');
       }
 
-      return await TokenUtils.verifyToken(token);
+      // Use Supabase's auth.getUser instead of our custom verification
+      const { data: { user }, error } = await supabase.auth.getUser(token);
+      if (error) throw error;
+      return user;
+
     } catch (error) {
       throw new Error(`Token verification failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }

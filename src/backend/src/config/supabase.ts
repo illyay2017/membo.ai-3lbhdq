@@ -4,6 +4,8 @@
  * @license MIT
  */
 
+import { UserRole } from '@/constants/userRoles';
+import { IUserPreferences } from '@/interfaces/IUser';
 import { createClient, SupabaseClient } from '@supabase/supabase-js'; // v2.39.0
 
 /**
@@ -56,11 +58,16 @@ const validateEnvironmentVariables = (): void => {
 const createSupabaseClient = (): SupabaseClient => {
   validateEnvironmentVariables();
 
-  const supabaseUrl = process.env.SUPABASE_URL!;
+  // Transform URL for Docker networking
+  const supabaseUrl = process.env.SUPABASE_URL!.replace(
+    'localhost', 
+    'host.docker.internal'
+  );
   const supabaseKey = process.env.SUPABASE_ANON_KEY!;
 
-  console.log('Creating Supabase client with:', {
-    url: supabaseUrl,
+  console.log('Creating Supabase client with transformed URL:', {
+    originalUrl: process.env.SUPABASE_URL,
+    transformedUrl: supabaseUrl,
     keyLength: supabaseKey?.length || 0
   });
 
@@ -68,10 +75,10 @@ const createSupabaseClient = (): SupabaseClient => {
   const memoryStorage = (() => {
     const store = new Map<string, string>();
     return {
-        getItem: (key: string): string | null => store.get(`_${key}`) || null,
-        setItem: (key: string, value: string): void => { store.set(`_${key}`, value); },
-        removeItem: (key: string): void => { store.delete(`_${key}`); },
-        clear: (): void => { store.clear(); }
+      getItem: (key: string): string | null => store.get(`_${key}`) || null,
+      setItem: (key: string, value: string): void => { store.set(`_${key}`, value); },
+      removeItem: (key: string): void => { store.delete(`_${key}`); },
+      clear: (): void => { store.clear(); }
     };
   })();
 
@@ -79,56 +86,23 @@ const createSupabaseClient = (): SupabaseClient => {
     auth: {
       autoRefreshToken: true,
       persistSession: true,
-      detectSessionInUrl: true,
+      detectSessionInUrl: false,
       storage: memoryStorage
     },
     db: {
-      schema: 'public',
-      // Configure connection pooling based on technical specifications
-      pooling: {
-        max: 10,
-        idleTimeoutMillis: 30000
-      }
+      schema: 'public'
     },
     global: {
-      // Enhanced security headers
       headers: {
         'x-application-name': 'membo.ai',
         'x-client-version': '1.0.0',
         'x-request-timeout': '5000'
-      },
-      // Retry configuration for resilience
-      retryOptions: {
-        maxRetries: 3,
-        retryDelay: 1000
       }
     },
-    // Real-time subscription settings
     realtime: {
-      timeout: 30000,
-      heartbeat: {
-        interval: 15000,
-        timeout: 5000
-      }
+      timeout: 30000
     }
   });
-
-  // Add error monitoring hooks
-  client.handleError = (error: Error) => {
-    console.error('[Supabase Error]:', error);
-    // Additional error tracking could be implemented here
-  };
-
-  // Add performance monitoring
-  client.handleResponse = (response: Response) => {
-    if (!response.ok) {
-      console.warn('[Supabase Response]:', {
-        status: response.status,
-        statusText: response.statusText,
-        url: response.url
-      });
-    }
-  };
 
   return client;
 };
@@ -153,7 +127,20 @@ export default supabase;
 export type Database = {
   public: {
     Tables: {
-      // Add your table definitions here
+      users: {
+        Row: {
+          id: string;
+          role: UserRole;
+          preferences: IUserPreferences;
+          created_at: string;
+          updated_at: string;
+          version: number;
+          last_access: string;
+        };
+        Insert: Omit<Database['public']['Tables']['users']['Row'], 'created_at' | 'updated_at'>;
+        Update: Partial<Database['public']['Tables']['users']['Insert']>;
+      };
+      // ... other tables
     };
     Views: {
       // Add your view definitions here

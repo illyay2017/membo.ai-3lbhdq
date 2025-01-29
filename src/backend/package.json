@@ -15,9 +15,12 @@
     "lint": "eslint . --ext .ts --fix --max-warnings 0",
     "format": "prettier --write \"src/**/*.ts\" && sort-package-json",
     "migrate": "node dist/db/migrate.js",
-    "seed": "node dist/db/seed.js",
+    "seed": "supabase db reset",
+    "seed:test": "PGPASSWORD=postgres psql -h localhost -p 54322 -U postgres -d postgres -f supabase/test-seed.sql",
     "prepare": "husky",
-    "lint-staged": "lint-staged"
+    "lint-staged": "lint-staged",
+    "seed:users": "tsx scripts/seed-users.ts",
+    "db:reset": "supabase db reset && npm run seed"
   },
   "dependencies": {
     "@keyv/redis": "^2.8.4",

@@ -167,6 +167,13 @@ router.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
+// Debug logging for route registration
+console.log('Registering routes...');
+console.log('Available auth routes:', authRouter.stack.map(r => ({
+  path: r.route?.path,
+  methods: r.route?.methods
+})));
+
 // Mount API routes with versioning
 router.use('/v1/auth', authRouter);
 router.use('/v1/cards', cardsRouter);
@@ -174,6 +181,12 @@ router.use('/v1/content', configureContentRoutes(contentController));
 router.use('/v1/study', initializeStudyRoutes(studyController));
 router.use('/voice', voiceRouter);
 router.use('/v1/users', usersRouter);
+
+// Debug logging for mounted routes
+console.log('All registered routes:', router.stack.map(r => ({
+  path: r.regexp,
+  handle: r.handle.name || 'middleware'
+})));
 
 // Health check endpoint
 router.get('/health', async (req: Request, res: Response) => {

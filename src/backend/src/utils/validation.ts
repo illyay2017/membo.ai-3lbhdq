@@ -16,11 +16,16 @@ const SANITIZATION_OPTIONS = {
 const VALIDATION_CACHE_TTL = 300; // 5 minutes in seconds
 
 // Types for validation results and options
-interface ValidationResult {
+export interface ValidationResult {
   isValid: boolean;
-  errors: ValidationError[];
-  suggestions?: string[];
+  errors: Array<{
+    field?: string;
+    message: string;
+    code?: string;
+    severity?: string;
+  }>;
   metadata?: Record<string, any>;
+  data?: any;
 }
 
 interface ValidationError {

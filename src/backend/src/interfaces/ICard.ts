@@ -51,7 +51,7 @@ export interface IFSRSData {
     stability: number;
     difficulty: number;
     reviewCount: number;
-    lastReview: Date;
+    lastReview: Date | null;
     lastRating: number;
 }
 
@@ -76,20 +76,23 @@ export interface ICard {
     backContent: ICardContent;
 
     /** FSRS algorithm data for spaced repetition */
-    fsrsData: IFSRSData;
+    fsrsData: {
+        stability: number;
+        difficulty: number;
+        reviewCount: number;
+        lastReview: Date | null;
+        lastRating: number;
+    };
 
     /** Next scheduled review date */
     nextReview: Date;
 
     /** Study modes compatible with this card */
-    compatibleModes: StudyModes[];
+    compatibleModes: string[];
 
     /** Organizational and searchable tags */
     tags: string[];
 
     /** Card creation timestamp */
     createdAt: Date;
-
-    /** Last modification timestamp */
-    updatedAt: Date;
 }

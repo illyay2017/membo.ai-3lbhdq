@@ -48,10 +48,8 @@ export class CardService {
                 stability: 0.5,
                 difficulty: 0.3,
                 reviewCount: 0,
-                lastReview: new Date(),
-                lastRating: 0,
-                retentionScore: 1.0,
-                streakCount: 0
+                lastReview: null,
+                lastRating: 0
             };
 
             const enhancedCardData: Partial<ICard> = {

@@ -46,7 +46,8 @@ export class User implements IUser {
   public lastName: string;
   public role: UserRole;
   public preferences: IUserPreferences;
-  public schemaVersion: number = 1;
+  public version: number;
+  public lastAccess: Date;
   public createdAt: Date;
   public updatedAt: Date;
   public lastLoginAt: Date;
@@ -64,6 +65,8 @@ export class User implements IUser {
     this.lastName = userData.lastName || '';
     this.role = userData.role || UserRole.FREE_USER;
     this.preferences = userData.preferences || this.getDefaultPreferences();
+    this.version = userData.version || 1;
+    this.lastAccess = userData.lastAccess || new Date();
     this.createdAt = userData.createdAt || new Date();
     this.updatedAt = userData.updatedAt || new Date();
     this.lastLoginAt = userData.lastLoginAt || new Date();
@@ -102,10 +105,10 @@ export class User implements IUser {
       const result = await databaseManager.executeQuery(
         `INSERT INTO users (
           id, email, password, first_name, last_name, role,
-          preferences, schema_version, created_at, updated_at,
+          preferences, version, created_at, updated_at,
           last_login_at, last_password_change_at, is_active,
-          is_email_verified, failed_login_attempts
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+          is_email_verified, failed_login_attempts, last_access
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
         RETURNING *`,
         [
           user.id,
@@ -115,14 +118,15 @@ export class User implements IUser {
           user.lastName,
           user.role,
           JSON.stringify(user.preferences),
-          user.schemaVersion,
+          user.version,
           user.createdAt,
           user.updatedAt,
           user.lastLoginAt,
           user.lastPasswordChangeAt,
           user.isActive,
           user.isEmailVerified,
-          user.failedLoginAttempts
+          user.failedLoginAttempts,
+          user.lastAccess
         ]
       );
 

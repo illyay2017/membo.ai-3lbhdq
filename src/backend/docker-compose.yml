@@ -122,6 +122,8 @@ networks:
     labels:
       com.membo.environment: development
       com.membo.network: membo_network
+  supabase_network:
+    external: true  # This assumes Supabase created its network
 
 configs:
   prometheus_config:
