@@ -25,11 +25,14 @@ CREATE TYPE study_mode AS ENUM (
 );
 
 -- Core tables
-CREATE TABLE users (
-    id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+CREATE TABLE public.users (
+    id uuid REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
     role user_role NOT NULL DEFAULT 'FREE_USER',
     preferences jsonb DEFAULT '{}'::jsonb,
+    version integer NOT NULL DEFAULT 1,
+    last_access timestamptz DEFAULT now(),
     created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now(),
     CONSTRAINT valid_preferences CHECK (
         jsonb_typeof(preferences) = 'object' AND
         (preferences->>'studyMode')::text IN ('STANDARD', 'VOICE', 'QUIZ') AND
@@ -44,167 +47,164 @@ CREATE TABLE users (
     )
 );
 
-CREATE TABLE content (
+CREATE TABLE public.content (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
     content TEXT NOT NULL,
-    metadata JSONB NOT NULL DEFAULT '{}',
-    status content_status NOT NULL DEFAULT 'NEW',
+    metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+    source_type TEXT NOT NULL,
     source_url TEXT,
-    captured_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    processed_at TIMESTAMP WITH TIME ZONE,
-    error_details TEXT,
-    CONSTRAINT content_not_empty CHECK (length(content) > 0)
+    status content_status NOT NULL DEFAULT 'NEW',
+    captured_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    processed_at TIMESTAMPTZ,
+    error_code TEXT,
+    error_message TEXT,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now(),
+    CONSTRAINT valid_metadata CHECK (
+        jsonb_typeof(metadata) = 'object' AND
+        (metadata->>'title' IS NULL OR jsonb_typeof(metadata->'title') = 'string') AND
+        (metadata->>'author' IS NULL OR jsonb_typeof(metadata->'author') = 'string') AND
+        jsonb_typeof(metadata->'tags') = 'array'
+    ),
+    CONSTRAINT valid_source_type CHECK (
+        source_type = ANY(ARRAY['web', 'pdf', 'kindle', 'manual'])
+    )
 );
 
-CREATE TABLE cards (
+CREATE TABLE public.cards (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    content_id UUID REFERENCES content(id) ON DELETE SET NULL,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    content_id UUID REFERENCES public.content(id) ON DELETE CASCADE,
     front_content JSONB NOT NULL,
     back_content JSONB NOT NULL,
-    fsrs_data JSONB NOT NULL DEFAULT '{"stability": 0, "difficulty": 0}',
-    tags TEXT[] DEFAULT ARRAY[]::TEXT[],
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    next_review TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    last_reviewed_at TIMESTAMP WITH TIME ZONE,
-    review_count INTEGER NOT NULL DEFAULT 0,
-    CONSTRAINT valid_fsrs_data CHECK (
-        jsonb_typeof(fsrs_data->'stability') = 'number' AND
-        jsonb_typeof(fsrs_data->'difficulty') = 'number'
+    fsrs_data JSONB NOT NULL DEFAULT '{
+        "stability": 0.5,
+        "difficulty": 0.3,
+        "reviewCount": 0,
+        "lastReview": null,
+        "lastRating": 0,
+        "performanceHistory": []
+    }',
+    next_review TIMESTAMPTZ NOT NULL DEFAULT now(),
+    compatible_modes TEXT[] NOT NULL DEFAULT '{STANDARD}',
+    tags TEXT[] NOT NULL DEFAULT '{}',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now(),
+    CONSTRAINT valid_card_content CHECK (
+        (front_content->>'text' IS NOT NULL) AND
+        (front_content->>'type' IN ('text', 'markdown', 'html', 'code')) AND
+        (back_content->>'text' IS NOT NULL) AND
+        (back_content->>'type' IN ('text', 'markdown', 'html', 'code'))
     )
 );
 
 CREATE TABLE study_sessions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     mode study_mode NOT NULL DEFAULT 'STANDARD',
     cards_studied UUID[] NOT NULL DEFAULT ARRAY[]::UUID[],
-    performance JSONB NOT NULL DEFAULT '{"correct": 0, "incorrect": 0}',
-    start_time TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    end_time TIMESTAMP WITH TIME ZONE,
-    duration_seconds INTEGER,
-    CONSTRAINT valid_performance_data CHECK (
-        jsonb_typeof(performance->'correct') = 'number' AND
-        jsonb_typeof(performance->'incorrect') = 'number'
-    )
+    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'completed', 'paused')),
+    performance JSONB NOT NULL DEFAULT '{
+        "totalCards": 0,
+        "correctCount": 0,
+        "averageConfidence": 0,
+        "studyStreak": 0,
+        "timeSpent": 0,
+        "fsrsProgress": {
+            "averageStability": 0,
+            "averageDifficulty": 0,
+            "retentionRate": 0,
+            "intervalProgress": 0
+        }
+    }',
+    settings JSONB NOT NULL DEFAULT '{
+        "sessionDuration": 30,
+        "cardsPerSession": 20,
+        "showConfidenceButtons": true,
+        "enableFSRS": true,
+        "voiceConfig": {
+            "recognitionThreshold": 0.8,
+            "language": "en-US",
+            "useNativeSpeaker": false
+        }
+    }',
+    start_time TIMESTAMPTZ NOT NULL DEFAULT now(),
+    end_time TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
 );
 
 -- Performance indexes
-CREATE INDEX idx_content_user_status ON content(user_id, status);
-CREATE INDEX idx_cards_next_review ON cards(user_id, next_review);
-CREATE INDEX idx_study_sessions_user ON study_sessions(user_id, start_time);
-CREATE INDEX idx_cards_tags ON cards USING gin(tags);
-CREATE INDEX idx_content_full_text ON content USING gin(to_tsvector('english', content));
+CREATE INDEX idx_content_user_status ON public.content(user_id, status);
+CREATE INDEX idx_cards_next_review ON public.cards(user_id, next_review);
+CREATE INDEX idx_study_sessions_user ON public.study_sessions(user_id, start_time);
 
--- Enable row level security
-ALTER TABLE users ENABLE ROW LEVEL SECURITY;
-ALTER TABLE content ENABLE ROW LEVEL SECURITY;
-ALTER TABLE cards ENABLE ROW LEVEL SECURITY;
-ALTER TABLE study_sessions ENABLE ROW LEVEL SECURITY;
+-- Enable RLS
+ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 
--- Row level security policies
-CREATE POLICY users_self_access ON users
-    FOR ALL
-    USING (id = auth.uid());
+-- Create policies
+CREATE POLICY "Users can view own record" ON users
+    FOR SELECT USING (auth.uid() = id);
 
-CREATE POLICY content_owner_access ON content
-    FOR ALL
-    USING (user_id = auth.uid());
+CREATE POLICY "Users can update own record" ON users
+    FOR UPDATE USING (auth.uid() = id);
 
-CREATE POLICY cards_owner_access ON cards
-    FOR ALL
-    USING (user_id = auth.uid());
-
-CREATE POLICY study_sessions_owner_access ON study_sessions
-    FOR ALL
-    USING (user_id = auth.uid());
-
--- Triggers for updated_at timestamps
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
-
-CREATE TRIGGER update_users_updated_at
-    BEFORE UPDATE ON users
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
-
--- Function to calculate study session duration
-CREATE OR REPLACE FUNCTION calculate_session_duration()
-RETURNS TRIGGER AS $$
-BEGIN
-    IF NEW.end_time IS NOT NULL THEN
-        NEW.duration_seconds = EXTRACT(EPOCH FROM (NEW.end_time - NEW.start_time));
-    END IF;
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
-
-CREATE TRIGGER update_session_duration
-    BEFORE UPDATE ON study_sessions
-    FOR EACH ROW
-    EXECUTE FUNCTION calculate_session_duration();
-
--- Create trigger to automatically create user record
+-- Create trigger function for user creation
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 DECLARE
     user_preferences jsonb;
+    user_role_str text;
 BEGIN
-    -- Extract preferences from raw_app_meta_data
-    user_preferences := CASE 
-        WHEN NEW.raw_app_meta_data->'preferences' IS NOT NULL THEN
-            NEW.raw_app_meta_data->'preferences'
-        ELSE 
-            jsonb_build_object(
-                'studyMode', 'STANDARD',
-                'voiceEnabled', false,
-                'dailyGoal', 20,
-                'theme', 'light',
-                'language', 'en',
-                'notifications', jsonb_build_object(
-                    'email', true,
-                    'push', true,
-                    'studyReminders', true
-                )
-            )
-    END;
+    -- Get role from user metadata, default to 'FREE_USER' if not found
+    user_role_str := COALESCE(
+        NEW.raw_user_meta_data->>'user_role',
+        'FREE_USER'
+    );
 
-    -- Ensure all required fields exist with correct structure
+    -- Validate role string
+    IF user_role_str NOT IN ('FREE_USER', 'PRO_USER', 'POWER_USER', 'ENTERPRISE_ADMIN', 'SYSTEM_ADMIN') THEN
+        user_role_str := 'FREE_USER';
+    END IF;
+
+    -- Build default preferences
     user_preferences := jsonb_build_object(
-        'studyMode', COALESCE(user_preferences->>'studyMode', 'STANDARD'),
-        'voiceEnabled', COALESCE((user_preferences->>'voiceEnabled')::boolean, false),
-        'dailyGoal', COALESCE((user_preferences->>'dailyGoal')::integer, 20),
-        'theme', COALESCE(user_preferences->>'theme', 'light'),
-        'language', COALESCE(user_preferences->>'language', 'en'),
-        'notifications', COALESCE(
-            user_preferences->'notifications',
-            jsonb_build_object(
-                'email', COALESCE((user_preferences->>'emailNotifications')::boolean, true),
-                'push', true,
-                'studyReminders', true
-            )
+        'studyMode', 'STANDARD',
+        'voiceEnabled', false,
+        'dailyGoal', 20,
+        'theme', 'light',
+        'language', 'en',
+        'notifications', jsonb_build_object(
+            'email', true,
+            'push', true,
+            'studyReminders', true
         )
     );
 
-    -- Insert the user record
-    INSERT INTO public.users (id, role, preferences)
+    INSERT INTO public.users (
+        id,
+        role,
+        preferences,
+        version,
+        last_access
+    )
     VALUES (
         NEW.id,
-        COALESCE((NEW.raw_app_meta_data->>'role')::user_role, 'FREE_USER'),
-        user_preferences
+        user_role_str::public.user_role,  -- Explicitly cast to public.user_role
+        user_preferences,
+        1,
+        CURRENT_TIMESTAMP
     );
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Trigger to create user record when auth.users record is created
+-- Create trigger for new user creation
 CREATE TRIGGER on_auth_user_created
     AFTER INSERT ON auth.users
     FOR EACH ROW
     EXECUTE FUNCTION public.handle_new_user();
+
+-- Set up realtime
+ALTER publication supabase_realtime ADD TABLE users;

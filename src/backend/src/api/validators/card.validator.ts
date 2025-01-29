@@ -52,7 +52,7 @@ const fsrsDataSchema = Joi.object({
     stability: Joi.number().min(0).max(1).required(),
     difficulty: Joi.number().min(0).max(1).required(),
     reviewCount: Joi.number().min(0).required(),
-    lastReview: Joi.date().iso().max('now').required(),
+    lastReview: Joi.date().allow(null),
     lastRating: Joi.number().min(0).max(4).required()
 });
 
@@ -82,12 +82,6 @@ export const validateCreateCard = async (requestBody: Partial<ICard>, userRole?:
         fsrsData: fsrsDataSchema.required(),
         compatibleModes: Joi.array()
             .items(Joi.string().valid(...Object.values(StudyModes)))
-            .custom((value, helpers) => {
-                if (!userRole || !validateStudyModeAccess(value, userRole)) {
-                    return helpers.error('array.studyModeAccess');
-                }
-                return value;
-            })
             .required(),
         tags: Joi.array()
             .items(Joi.string().max(MAX_TAG_LENGTH))

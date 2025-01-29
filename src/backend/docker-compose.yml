@@ -16,7 +16,7 @@ services:
       - SUPABASE_URL=${SUPABASE_URL}
       - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
       - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
-      - DATABASE_URL=${DATABASE_URL}
+      - DATABASE_URL=postgresql://postgres:postgres@host.docker.internal:54322/postgres
       - REDIS_URL=redis://cache:6379
       - DEBUG=membo:*
     depends_on:
@@ -35,7 +35,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 30s
+      start_period: 40s
     restart: unless-stopped
     deploy:
       resources:
@@ -48,6 +48,8 @@ services:
     networks:
       - membo_network
     container_name: membo_api
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   cache:
     image: redis:7.2-alpine
@@ -113,12 +115,15 @@ volumes:
 
 networks:
   membo_network:
+    name: membo_network
     driver: bridge
     enable_ipv6: true
     attachable: true
     labels:
       com.membo.environment: development
       com.membo.network: membo_network
+  supabase_network:
+    external: true  # This assumes Supabase created its network
 
 configs:
   prometheus_config:

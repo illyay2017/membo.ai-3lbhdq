@@ -50,7 +50,7 @@ interface HealthStatus {
   lastCheck: Date;
 }
 
-class RedisManager {
+export class RedisManager {
   private client: Redis;
   private readonly logger: winston.Logger;
   private healthCheckInterval: NodeJS.Timer;
@@ -258,6 +258,10 @@ class RedisManager {
 
   public getClient(): Redis {
     return this.client;
+  }
+
+  public async ping(): Promise<string> {
+    return this.client.ping();
   }
 }
 

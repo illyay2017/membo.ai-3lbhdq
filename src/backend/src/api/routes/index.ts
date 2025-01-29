@@ -27,12 +27,37 @@ import { ContentProcessor } from '../../core/ai/contentProcessor';
 import { SecurityService } from '../../services/SecurityService';
 import { openai } from '../../config/openai';
 import { voiceRouter } from './voice.routes';
+import { databaseManager } from '../../config/database';
+import { redisManager } from '../../config/redis';
+
+console.log('Loading routes/index.ts');
 
 // Initialize main router with strict routing
 const router = Router({ strict: true, caseSensitive: true });
 
 // Initialize dependencies for services
-const redisClient = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
+const redisClient = new Redis(process.env.REDIS_URL || 'redis://cache:6379', {
+  maxRetriesPerRequest: 3,
+  retryStrategy(times) {
+    const delay = Math.min(times * 50, 2000);
+    return delay;
+  },
+  enableReadyCheck: true
+});
+
+// Add Redis connection logging
+redisClient.on('connect', () => {
+  console.log('Redis client connecting...');
+});
+
+redisClient.on('ready', () => {
+  console.log('Redis client ready');
+});
+
+redisClient.on('error', (err) => {
+  console.error('Redis client error:', err);
+});
+
 const contentProcessor = new ContentProcessor(openai);
 const securityService = new SecurityService();
 
@@ -132,6 +157,24 @@ router.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
+// Add request logging middleware before routes
+router.use((req: Request, res: Response, next: NextFunction) => {
+  console.log('Request in routes/index.ts:', {
+    method: req.method,
+    path: req.path,
+    baseUrl: req.baseUrl,
+    originalUrl: req.originalUrl
+  });
+  next();
+});
+
+// Debug logging for route registration
+console.log('Registering routes...');
+console.log('Available auth routes:', authRouter.stack.map(r => ({
+  path: r.route?.path,
+  methods: r.route?.methods
+})));
+
 // Mount API routes with versioning
 router.use('/v1/auth', authRouter);
 router.use('/v1/cards', cardsRouter);
@@ -140,13 +183,54 @@ router.use('/v1/study', initializeStudyRoutes(studyController));
 router.use('/voice', voiceRouter);
 router.use('/v1/users', usersRouter);
 
+// Debug logging for mounted routes
+console.log('All registered routes:', router.stack.map(r => ({
+  path: r.regexp,
+  handle: r.handle.name || 'middleware'
+})));
+
 // Health check endpoint
-router.get('/health', (req: Request, res: Response) => {
-  res.status(200).json({
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    version: process.env.API_VERSION
-  });
+router.get('/health', async (req: Request, res: Response) => {
+  try {
+    // Simple query without parameters
+    const dbResult = await databaseManager.executeQuery<{ version: string }>(
+      'SELECT version() as version'
+    );
+    const dbStatus = dbResult.rowCount === 1;
+    
+    console.log('Database health check result:', dbResult.rows[0]);
+
+    // Check Redis connection
+    const redisStatus = await redisManager.ping();
+
+    const isHealthy = dbStatus && redisStatus === 'PONG';
+    
+    console.log('Health check results:', { dbStatus, redisStatus });
+
+    const response = {
+      status: isHealthy ? 'healthy' : 'unhealthy',
+      timestamp: new Date().toISOString(),
+      services: {
+        database: dbStatus ? 'connected' : 'error',
+        redis: redisStatus === 'PONG' ? 'connected' : 'error',
+        api: 'running'
+      }
+    };
+
+    res.status(isHealthy ? 200 : 503).json(response);
+  } catch (error) {
+    console.error('Health check error:', error);
+    res.status(503).json({
+      status: 'unhealthy',
+      timestamp: new Date().toISOString(),
+      error: error.message
+    });
+  }
+});
+
+// Add a root health check that redirects to the API health check
+router.get('/', (req: Request, res: Response) => {
+  res.redirect('/api/v1/health');
 });
 
 // Global error handler
@@ -177,6 +261,12 @@ router.use((req: Request, res: Response) => {
   );
 
   res.status(errorDetails.status).json(errorDetails);
+});
+
+// Debug unmatched routes
+router.use((req, res, next) => {
+  console.log('No route matched in index.ts:', req.originalUrl);
+  next();
 });
 
 export default router;

@@ -10,7 +10,7 @@ import { RateLimiterRedis } from 'rate-limiter-flexible'; // ^3.0.0
 import winston from 'winston'; // ^3.8.2
 import { AuthService } from '../../services/AuthService';
 import { validateLoginRequest, validateRegistrationRequest } from '../validators/auth.validator';
-import { ErrorCodes, createErrorDetails } from '../../constants/errorCodes';
+import { ErrorCodes, createErrorDetails, AUTH_ERRORS } from '../../constants/errorCodes';
 
 // Configure secure logging
 const logger = winston.createLogger({
@@ -109,81 +109,46 @@ export class AuthController {
   /**
    * Handles user login with rate limiting and security measures
    */
-  public login = async (req: Request, res: Response): Promise<Response> => {
+  public login = async (req: Request, res: Response): Promise<void> => {
     try {
-      // Check rate limiting
-      try {
-        await this.rateLimiter.consume(req.ip);
-      } catch (error) {
-        return res.status(429).json(createErrorDetails(
-          ErrorCodes.RATE_LIMIT_EXCEEDED,
-          'Too many login attempts. Please try again later.',
-          req.originalUrl
-        ));
-      }
-
-      // Add security metadata
-      const metadata = {
-        ipAddress: req.ip,
-        userAgent: req.headers['user-agent'],
-        deviceId: req.headers['x-device-id']
-      };
-
-      // Validate login request
-      const validationResult = await validateLoginRequest({
-        ...req.body,
-        metadata
+      const { email, password, metadata } = req.body;
+      
+      const result = await this.authService.login(email, password);
+      
+      console.log('Sending response:', {
+        status: 200,
+        user: result.user.id,
+        tokensPresent: !!result.session
       });
 
-      if (!validationResult.isValid) {
-        return res.status(422).json(createErrorDetails(
-          ErrorCodes.VALIDATION_ERROR,
-          validationResult.errors[0].message,
-          req.originalUrl
-        ));
-      }
-
-      // Authenticate user
-      const { user, token, refreshToken } = await this.authService.login(
-        req.body.email,
-        req.body.password
-      );
-
-      // Set security headers
-      res.set({
-        'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
-        'X-Content-Type-Options': 'nosniff',
-        'X-Frame-Options': 'DENY',
-        'X-XSS-Protection': '1; mode=block'
-      });
-
-      // Set secure cookies
-      res.cookie('refreshToken', refreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
-        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-      });
-
-      logger.info('User logged in successfully', { userId: user.id });
-
-      return res.status(200).json({
-        user: {
-          id: user.id,
-          email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          role: user.role
-        },
-        token
-      });
+      res.status(200).json(result);
     } catch (error) {
-      logger.error('Login failed', { error, path: req.path });
-      return res.status(401).json(createErrorDetails(
-        ErrorCodes.UNAUTHORIZED,
-        'Invalid credentials',
-        req.originalUrl
-      ));
+      console.error('Login error:', error);
+      
+      // Map specific error messages to proper error responses
+      if (error instanceof Error) {
+        if (error.message.includes('Invalid login credentials')) {
+          res.status(401).json(AUTH_ERRORS.INVALID_CREDENTIALS);
+          return;
+        }
+        if (error.message.includes('Account is temporarily locked')) {
+          res.status(401).json(AUTH_ERRORS.ACCOUNT_LOCKED);
+          return;
+        }
+        if (error.message.includes('User not found')) {
+          res.status(401).json(AUTH_ERRORS.USER_NOT_FOUND);
+          return;
+        }
+      }
+
+      // Default error response
+      res.status(500).json({
+        type: 'https://api.membo.ai/problems/server-error',
+        title: 'Authentication failed',
+        status: 500,
+        detail: 'An unexpected error occurred during authentication',
+        instance: req.originalUrl
+      });
     }
   };
 

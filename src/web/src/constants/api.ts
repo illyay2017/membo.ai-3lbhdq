@@ -14,7 +14,7 @@ export const API_VERSION = '/api/v1';
  * Base URL for API requests
  * Falls back to localhost in development environment
  */
-export const API_BASE_URL = process.env.VITE_API_BASE_URL || 'http://localhost:4000';
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4001';
 
 /**
  * Comprehensive collection of API endpoints organized by feature domain
@@ -22,10 +22,10 @@ export const API_BASE_URL = process.env.VITE_API_BASE_URL || 'http://localhost:4
  */
 export const API_ENDPOINTS = {
   AUTH: {
-    LOGIN: '/auth/login',
-    REGISTER: '/auth/register',
-    LOGOUT: '/auth/logout',
-    REFRESH: '/auth/refresh',
+    LOGIN: `${API_BASE_URL}/api/v1/auth/login`,
+    REGISTER: `${API_BASE_URL}/api/v1/auth/register`,
+    LOGOUT: `${API_BASE_URL}/api/v1/auth/logout`,
+    REFRESH: `${API_BASE_URL}/api/v1/auth/refresh`,
     FORGOT_PASSWORD: '/auth/forgot-password',
     RESET_PASSWORD: '/auth/reset-password',
     VERIFY_EMAIL: '/auth/verify-email',

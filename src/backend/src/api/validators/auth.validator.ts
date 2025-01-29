@@ -1,5 +1,5 @@
 import Joi from 'joi'; // ^17.9.0
-import { validateSchema, validateEmail, validatePassword } from '../../utils/validation';
+import { validateSchema, validateEmail, validatePassword, ValidationResult } from '../../utils/validation';
 import { IUser } from '../../interfaces/IUser';
 
 // Cache for rate limiting - stores IP/email combinations with timestamps
@@ -9,35 +9,53 @@ const MAX_LOGIN_ATTEMPTS = 5;
 
 // Metadata validation schema for tracking security context
 const metadataSchema = Joi.object({
-  ipAddress: Joi.string().ip().required(),
-  userAgent: Joi.string().required().max(500),
+  ipAddress: Joi.string().optional(),
+  userAgent: Joi.string().optional(),
   deviceId: Joi.string().optional(),
   geoLocation: Joi.object({
     country: Joi.string(),
     region: Joi.string()
   }).optional()
-}).required();
+}).optional();
 
 // Login request validation schema
 const LOGIN_SCHEMA = Joi.object({
   email: Joi.string()
     .required()
     .email()
-    .custom((value, helpers) => {
-      const result = validateEmail(value, { checkMX: true, checkDisposable: true });
-      if (!result.isValid) {
-        return helpers.error(result.errors[0].message);
+    .custom(async (value, helpers) => {
+      try {
+        const result = await validateEmail(value, { checkMX: true, checkDisposable: true });
+        if (!result.isValid) {
+          return helpers.error('any.invalid', { 
+            message: result.errors?.[0]?.message || 'Invalid email'
+          });
+        }
+        return value;
+      } catch (error) {
+        console.error('Email validation error:', error);
+        return helpers.error('any.invalid', { 
+          message: 'Email validation failed'
+        });
       }
-      return value;
     }),
   password: Joi.string()
     .required()
     .custom((value, helpers) => {
-      const result = validatePassword(value, { calculateStrength: true });
-      if (!result.isValid) {
-        return helpers.error(result.errors[0].message);
+      try {
+        const result = validatePassword(value, { calculateStrength: true });
+        if (!result.isValid) {
+          return helpers.error('any.invalid', { 
+            message: result.errors?.[0]?.message || 'Invalid password'
+          });
+        }
+        return value;
+      } catch (error) {
+        console.error('Password validation error:', error);
+        return helpers.error('any.invalid', { 
+          message: 'Password validation failed'
+        });
       }
-      return value;
     }),
   metadata: metadataSchema
 });
@@ -104,49 +122,33 @@ const PASSWORD_RESET_SCHEMA = Joi.object({
  * @param requestData - Login request data to validate
  * @returns Validation result with security metadata
  */
-export const validateLoginRequest = async (requestData: Partial<IUser & { metadata: any }>) => {
-  const { email, metadata: { ipAddress } } = requestData;
-  const cacheKey = `${ipAddress}:${email}`;
-  const now = Date.now();
+export const validateLoginRequest = async (data: any): Promise<ValidationResult> => {
+  try {
+    // Ensure metadata exists
+    const metadata = data.metadata || {
+      ipAddress: 'unknown',
+      userAgent: 'unknown',
+      deviceId: undefined
+    };
 
-  // Check rate limiting
-  const rateLimit = rateLimitCache.get(cacheKey) || { attempts: 0, lastAttempt: now };
-  if (rateLimit.attempts >= MAX_LOGIN_ATTEMPTS && 
-      (now - rateLimit.lastAttempt) < RATE_LIMIT_WINDOW) {
+    const validationResult = await LOGIN_SCHEMA.validateAsync({
+      ...data,
+      metadata
+    });
+
+    return {
+      isValid: true,
+      errors: [],
+      metadata: {},
+      data: validationResult
+    };
+  } catch (error) {
     return {
       isValid: false,
-      errors: [{
-        field: 'auth',
-        message: 'Too many login attempts. Please try again later.',
-        code: 'rate_limit_exceeded',
-        severity: 'error'
-      }],
-      metadata: {
-        remainingTime: RATE_LIMIT_WINDOW - (now - rateLimit.lastAttempt)
-      }
+      errors: [{ message: error.message }],
+      metadata: {}
     };
   }
-
-  // Validate request data
-  const validationResult = await validateSchema(LOGIN_SCHEMA, requestData);
-
-  // Update rate limiting cache
-  if (!validationResult.isValid) {
-    rateLimitCache.set(cacheKey, {
-      attempts: rateLimit.attempts + 1,
-      lastAttempt: now
-    });
-  }
-
-  return {
-    ...validationResult,
-    metadata: {
-      ...validationResult.metadata,
-      attempts: rateLimit.attempts + 1,
-      ipAddress,
-      timestamp: now
-    }
-  };
 };
 
 /**
@@ -154,7 +156,9 @@ export const validateLoginRequest = async (requestData: Partial<IUser & { metada
  * @param requestData - Registration request data to validate
  * @returns Validation result with security metadata
  */
-export const validateRegistrationRequest = async (requestData: Partial<IUser & { metadata: any }>) => {
+export const validateRegistrationRequest = async (
+  requestData: Partial<IUser & { metadata: any }>
+): Promise<ValidationResult> => {
   const { metadata: { ipAddress } } = requestData;
   const now = Date.now();
 

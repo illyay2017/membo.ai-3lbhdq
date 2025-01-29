@@ -4,20 +4,29 @@
  * @version 1.0.0
  */
 
-import bcrypt from 'bcrypt'; // v5.1.1
 import { createClient } from 'redis'; // v4.6.8
-import crypto from 'crypto'; // v1.0.1
-import { IUser } from '../interfaces/IUser';
+import { IUser, IUserPreferences } from '../interfaces/IUser';
 import { User } from '../models/User';
 import * as TokenUtils from '../utils/jwt';
+import { createSupabaseClient } from '../config/supabase';
+import { UserRole } from '@/constants/userRoles';
 
 /**
  * Interface for authentication response
  */
 interface AuthResponse {
-  user: IUser;
-  token: string;
-  refreshToken: string;
+  user: {
+    id: string;
+    email: string;
+    role: UserRole;  // Use enum instead of string
+    preferences: IUserPreferences;  // Use proper interface
+    version: number;  // Make required
+    lastAccess: Date;  // Make required
+  };
+  session: {
+    access_token: string;
+    refresh_token: string;
+  };
 }
 
 /**
@@ -51,6 +60,8 @@ export class AuthService {
 
     this.redisClient.connect().catch(console.error);
     this.setupTokenCleanup();
+
+    console.log('AuthService initialized');
   }
 
   /**
@@ -68,6 +79,7 @@ export class AuthService {
 
       // Create user with secure password hashing
       const user = await User.create(userData);
+      console.log('User created:', user);
 
       // Generate authentication tokens
       const [token, refreshToken] = await Promise.all([
@@ -92,26 +104,72 @@ export class AuthService {
    */
   public async login(email: string, password: string): Promise<AuthResponse> {
     try {
-      // Check rate limiting
-      await this.checkRateLimit(email);
+      console.log('AuthService.login called with:', { 
+        email, 
+        hasPassword: !!password 
+      });
 
-      // Authenticate user
-      const user = await User.authenticate(email, password);
-      if (!user) {
-        throw new Error('Invalid credentials');
+      // Create client with service role for auth operations
+      const supabase = createSupabaseClient(true);
+
+      // Use the new client instance
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      // Add detailed logging of the Supabase response
+      console.log('Supabase auth response:', {
+        hasAuthData: !!authData,
+        hasSession: !!authData?.session,
+        hasUser: !!authData?.user,
+        error: authError?.message,
+        status: authError?.status
+      });
+
+      if (authError) throw new Error(authError.message);
+      if (!authData?.user || !authData?.session) {
+        throw new Error('Invalid authentication response');
       }
 
-      // Generate authentication tokens
-      const [token, refreshToken] = await Promise.all([
-        TokenUtils.generateToken(user),
-        TokenUtils.generateRefreshToken(user)
-      ]);
+      // Get additional user data from public.users if needed
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('role, preferences, version, last_access')
+        .eq('id', authData.user.id)
+        .single();
 
-      // Store refresh token
-      await this.storeRefreshToken(user.id, refreshToken);
+      console.log('User data query result:', {
+        hasUserData: !!userData,
+        error: userError?.message,
+        userFields: userData ? Object.keys(userData) : []
+      });
 
-      return { user, token, refreshToken };
+      if (userError || !userData) {
+        throw new Error('User data not found');
+      }
+
+      // Keep our existing rate limiting
+      await this.checkRateLimit(email);
+
+      // Return the response without storing the session
+      return {
+        user: {
+          id: authData.user.id,
+          email: authData.user.email!,
+          role: userData.role,
+          preferences: userData.preferences,
+          version: userData.version,
+          lastAccess: new Date(userData.last_access)
+        },
+        session: {
+          access_token: authData.session.access_token,
+          refresh_token: authData.session.refresh_token
+        }
+      };
+
     } catch (error) {
+      console.error('AuthService.login error:', error);
       throw new Error(`Authentication failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -179,13 +237,22 @@ export class AuthService {
    */
   public async verifyAccessToken(token: string): Promise<any> {
     try {
-      // Check token blacklist
+      // Keep your token blacklist check
       const isBlacklisted = await this.isTokenBlacklisted(token);
       if (isBlacklisted) {
         throw new Error('Token has been revoked');
       }
 
-      return await TokenUtils.verifyToken(token);
+      // Use Supabase's getUser with error handling
+      const { data: { user }, error } = await this.supabase.auth.getUser(token);
+      if (error) {
+        throw new Error(`Token verification failed: ${error.message}`);
+      }
+      if (!user) {
+        throw new Error('No user found for token');
+      }
+
+      return user;
     } catch (error) {
       throw new Error(`Token verification failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
@@ -300,12 +367,16 @@ export class AuthService {
    */
   private setupTokenCleanup(): void {
     setInterval(async () => {
-      const keys = await this.redisClient.keys(`${this.TOKEN_BLACKLIST_PREFIX}*`);
-      for (const key of keys) {
-        const ttl = await this.redisClient.ttl(key);
-        if (ttl <= 0) {
-          await this.redisClient.del(key);
+      try {
+        const keys = await this.redisClient.keys(`${this.TOKEN_BLACKLIST_PREFIX}*`);
+        for (const key of keys) {
+          const ttl = await this.redisClient.ttl(key);
+          if (ttl <= 0) {
+            await this.redisClient.del(key);
+          }
         }
+      } catch (error) {
+        console.error('Token cleanup error:', error);
       }
     }, 60 * 60 * 1000); // Run every hour
   }

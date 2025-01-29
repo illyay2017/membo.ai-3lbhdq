@@ -11,6 +11,10 @@ import { authenticate } from '../middlewares/auth.middleware';
 import { RateLimiterRedis } from 'rate-limiter-flexible';
 import { createClient } from 'redis';
 import { ErrorCodes, createErrorDetails } from '../../constants/errorCodes';
+import { AuthService } from '../../services/AuthService';
+
+// At the top of the file, add debug logging
+console.log('Loading auth.routes.ts');
 
 // Initialize Redis client for rate limiting
 const redisClient = createClient({
@@ -37,8 +41,40 @@ const router = Router({
   mergeParams: false
 });
 
+// Debug middleware for auth routes specifically
+router.use((req, res, next) => {
+  console.log('Request in auth.routes.ts:', {
+    method: req.method,
+    path: req.path,
+    baseUrl: req.baseUrl,
+    originalUrl: req.originalUrl
+  });
+  next();
+});
+
 // Connect Redis client
 redisClient.connect().catch(console.error);
+
+// After Redis client initialization
+redisClient.on('error', (err) => {
+  console.error('Redis Client Error:', err);
+});
+
+redisClient.on('connect', () => {
+  console.log('Redis Client Connected');
+});
+
+// Test Redis connection
+redisClient.ping().then(() => {
+  console.log('Redis PING successful');
+}).catch((err) => {
+  console.error('Redis PING failed:', err);
+});
+
+// Initialize AuthService
+const authService = new AuthService();
+
+console.log('Setting up auth routes...');
 
 /**
  * POST /api/auth/register
@@ -73,7 +109,8 @@ router.post('/register', async (req, res) => {
 
     // Check rate limiting
     try {
-      await rateLimiter.consume(req.ip);
+      const ipAddress = String(req.ip || req.socket?.remoteAddress || 'unknown_ip');
+      await rateLimiter.consume(ipAddress);
     } catch (error) {
       return res.status(429).json(createErrorDetails(
         ErrorCodes.RATE_LIMIT_EXCEEDED,
@@ -99,20 +136,20 @@ router.post('/register', async (req, res) => {
  * POST /api/auth/login
  * User login endpoint with validation and rate limiting
  */
-router.post('/login', async (req, res) => {
+router.post('/login', async (req, res, next) => {
+  console.log('Login request received in auth.routes.ts');
   try {
-    // Add security metadata
-    const metadata = {
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-      deviceId: req.headers['x-device-id']
+    // Add metadata before validation
+    req.body = {
+      ...req.body,
+      metadata: {
+        ipAddress: String(req.ip || req.socket?.remoteAddress || 'unknown_ip'),
+        userAgent: req.headers['user-agent'],
+        deviceId: req.headers['x-device-id']
+      }
     };
 
-    // Validate login request
-    const validationResult = await validateLoginRequest({
-      ...req.body,
-      metadata
-    });
+    const validationResult = await validateLoginRequest(req.body);
 
     if (!validationResult.isValid) {
       return res.status(422).json(createErrorDetails(
@@ -122,10 +159,33 @@ router.post('/login', async (req, res) => {
       ));
     }
 
+    return next();
+  } catch (error) {
+    // Enhanced error logging
+    console.error('Login error details:', {
+      error: error instanceof Error ? {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      } : error,
+      path: req.originalUrl,
+      body: { ...req.body, password: '[REDACTED]' }
+    });
+
+    return res.status(500).json(createErrorDetails(
+      ErrorCodes.INTERNAL_SERVER_ERROR,
+      'Login failed. Please try again later.',
+      req.originalUrl
+    ));
+  }
+}, async (req, res) => {
+  try {
     // Check rate limiting
     try {
-      await rateLimiter.consume(req.ip);
+      const ipAddress = String(req.ip || req.socket?.remoteAddress || 'unknown_ip');
+      await rateLimiter.consume(ipAddress);
     } catch (error) {
+      console.error('Rate limit error:', error);
       return res.status(429).json(createErrorDetails(
         ErrorCodes.RATE_LIMIT_EXCEEDED,
         'Too many login attempts. Please try again later.',
@@ -133,11 +193,22 @@ router.post('/login', async (req, res) => {
       ));
     }
 
-    // Process login
-    const authController = new AuthController(req.app.locals.authService, rateLimiter);
+    // Use the initialized authService
+    const authController = new AuthController(authService, rateLimiter);
     const result = await authController.login(req, res);
     return result;
   } catch (error) {
+    // Enhanced error logging
+    console.error('Login error details:', {
+      error: error instanceof Error ? {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      } : error,
+      path: req.originalUrl,
+      body: { ...req.body, password: '[REDACTED]' }
+    });
+
     return res.status(500).json(createErrorDetails(
       ErrorCodes.INTERNAL_SERVER_ERROR,
       'Login failed. Please try again later.',
@@ -196,6 +267,11 @@ router.use((req, res, next) => {
   });
   next();
 });
+
+console.log('Auth routes configured:', router.stack.map(r => ({
+  path: r.route?.path,
+  methods: r.route?.stack[0]?.method || []  // Access method from route stack
+})));
 
 // Export configured router
 export default router;
