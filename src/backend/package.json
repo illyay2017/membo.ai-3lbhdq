@@ -20,7 +20,8 @@
     "prepare": "husky",
     "lint-staged": "lint-staged",
     "seed:users": "tsx scripts/seed-users.ts",
-    "db:reset": "supabase db reset && npm run seed"
+    "db:reset": "supabase db reset && npm run seed",
+    "create-test-user": "tsx scripts/create-test-user.ts"
   },
   "dependencies": {
     "@keyv/redis": "^2.8.4",

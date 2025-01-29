@@ -53,11 +53,13 @@ BEGIN
         now(),
         jsonb_build_object(
             'provider', 'email',
-            'providers', ARRAY['email'],
-            'role', role::text,
-            'preferences', preferences
+            'providers', ARRAY['email']
         ),
-        metadata,
+        jsonb_build_object(
+            'first_name', metadata->>'first_name',
+            'last_name', metadata->>'last_name',
+            'user_role', role::text
+        ),
         now(),
         now(),
         role = 'SYSTEM_ADMIN'
@@ -69,7 +71,19 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Clean existing data
 TRUNCATE auth.users CASCADE;
-TRUNCATE content, cards, study_sessions, study_metrics, performance_analytics, engagement_metrics CASCADE;
+TRUNCATE public.content, public.cards, public.study_sessions CASCADE;
+
+-- Only truncate analytics tables if they exist
+DO $$ 
+BEGIN
+    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'study_analytics') THEN
+        EXECUTE 'TRUNCATE public.study_analytics CASCADE';
+    END IF;
+    
+    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'engagement_metrics') THEN
+        EXECUTE 'TRUNCATE public.engagement_metrics CASCADE';
+    END IF;
+END $$;
 
 -- Seed Users
 DO $$ 
@@ -104,19 +118,28 @@ BEGIN
     ) INTO admin_user_id;
 
     -- Seed Content
-    INSERT INTO content (
+    INSERT INTO public.content (
         id,
         user_id,
         content,
         metadata,
+        source_type,
+        source_url,
         status,
         captured_at,
         processed_at
     ) VALUES (
         'c47ac10b-58cc-4372-a567-0e02b2c3d479',
-        free_user_id,  -- Use the stored user ID
+        free_user_id,
         'The mitochondria is the powerhouse of the cell. This organelle generates most of the cell''s supply of adenosine triphosphate (ATP).',
-        '{"source": "web", "url": "example.com/biology", "captureDate": "2023-01-01T10:00:00Z", "title": "Cell Biology Basics", "tags": ["biology", "science"]}'::jsonb,
+        '{
+            "title": "Cell Biology Basics",
+            "author": "Biology Expert",
+            "tags": ["biology", "science"],
+            "language": "en"
+        }'::jsonb,
+        'web',
+        'example.com/biology',
         'NEW',
         NOW() - INTERVAL '25 days',
         NULL
@@ -156,6 +179,139 @@ END $$;
 
 -- Drop the temporary function
 DROP FUNCTION create_seed_user(text, text, user_role, jsonb, jsonb);
+
+-- Seed test user (if not exists)
+INSERT INTO auth.users (
+    id,
+    email,
+    encrypted_password,
+    email_confirmed_at,
+    raw_user_meta_data,
+    created_at,
+    updated_at
+)
+SELECT 
+    '00000000-0000-0000-0000-000000000000',
+    'test@membo.ai',
+    crypt('TestPass123!', gen_salt('bf')),
+    now(),
+    jsonb_build_object(
+        'first_name', 'Test',
+        'last_name', 'User',
+        'user_role', 'FREE_USER'
+    ),
+    now(),
+    now()
+WHERE NOT EXISTS (
+    SELECT 1 FROM auth.users WHERE email = 'test@membo.ai'
+);
+
+-- Seed test content
+INSERT INTO public.content (
+    id,
+    user_id,
+    content,
+    metadata,
+    source_type,
+    source_url,
+    status,
+    captured_at
+) VALUES (
+    '11111111-1111-1111-1111-111111111111',
+    '00000000-0000-0000-0000-000000000000',
+    'The quick brown fox jumps over the lazy dog.',
+    '{
+        "title": "Test Article",
+        "author": "Test Author",
+        "tags": ["test", "example"],
+        "language": "en"
+    }'::jsonb,
+    'web',
+    'https://example.com/test',
+    'PROCESSED',
+    now()
+);
+
+-- Seed test cards
+INSERT INTO public.cards (
+    id,
+    user_id,
+    content_id,
+    front_content,
+    back_content,
+    fsrs_data,
+    next_review,
+    compatible_modes,
+    tags
+) VALUES (
+    '22222222-2222-2222-2222-222222222222',
+    '00000000-0000-0000-0000-000000000000',
+    '11111111-1111-1111-1111-111111111111',
+    '{
+        "text": "What animal jumps over the lazy dog?",
+        "type": "text"
+    }'::jsonb,
+    '{
+        "text": "The quick brown fox",
+        "type": "text"
+    }'::jsonb,
+    '{
+        "stability": 0.5,
+        "difficulty": 0.3,
+        "reviewCount": 0,
+        "lastReview": null,
+        "lastRating": 0,
+        "performanceHistory": []
+    }'::jsonb,
+    now(),
+    ARRAY['STANDARD', 'QUIZ'],
+    ARRAY['test', 'example']
+);
+
+-- Seed test study session
+INSERT INTO public.study_sessions (
+    id,
+    user_id,
+    mode,
+    cards_studied,
+    status,
+    performance,
+    settings,
+    start_time,
+    end_time
+) VALUES (
+    '33333333-3333-3333-3333-333333333333',
+    '00000000-0000-0000-0000-000000000000',
+    'STANDARD',
+    ARRAY['22222222-2222-2222-2222-222222222222']::uuid[],
+    'completed',
+    '{
+        "totalCards": 1,
+        "correctCount": 1,
+        "averageConfidence": 0.8,
+        "studyStreak": 1,
+        "timeSpent": 300,
+        "fsrsProgress": {
+            "averageStability": 0.5,
+            "averageDifficulty": 0.3,
+            "retentionRate": 1.0,
+            "intervalProgress": 0.1
+        }
+    }'::jsonb,
+    '{
+        "sessionDuration": 30,
+        "cardsPerSession": 20,
+        "showConfidenceButtons": true,
+        "enableFSRS": true,
+        "voiceConfig": {
+            "recognitionThreshold": 0.8,
+            "language": "en-US",
+            "useNativeSpeaker": false
+        }
+    }'::jsonb,
+    now() - interval '5 minutes',
+    now()
+);
 
 -- Commit transaction
 COMMIT;

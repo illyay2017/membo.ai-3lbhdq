@@ -30,6 +30,8 @@ import { voiceRouter } from './voice.routes';
 import { databaseManager } from '../../config/database';
 import { redisManager } from '../../config/redis';
 
+console.log('Loading routes/index.ts');
+
 // Initialize main router with strict routing
 const router = Router({ strict: true, caseSensitive: true });
 
@@ -157,12 +159,11 @@ router.use((req: Request, res: Response, next: NextFunction) => {
 
 // Add request logging middleware before routes
 router.use((req: Request, res: Response, next: NextFunction) => {
-  console.log('Incoming request:', {
+  console.log('Request in routes/index.ts:', {
     method: req.method,
-    url: req.url,
-    originalUrl: req.originalUrl,
     path: req.path,
-    baseUrl: req.baseUrl
+    baseUrl: req.baseUrl,
+    originalUrl: req.originalUrl
   });
   next();
 });
@@ -260,6 +261,12 @@ router.use((req: Request, res: Response) => {
   );
 
   res.status(errorDetails.status).json(errorDetails);
+});
+
+// Debug unmatched routes
+router.use((req, res, next) => {
+  console.log('No route matched in index.ts:', req.originalUrl);
+  next();
 });
 
 export default router;

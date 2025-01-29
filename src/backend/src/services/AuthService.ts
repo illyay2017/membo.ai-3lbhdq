@@ -4,9 +4,7 @@
  * @version 1.0.0
  */
 
-import bcrypt from 'bcrypt'; // v5.1.1
 import { createClient } from 'redis'; // v4.6.8
-import crypto from 'crypto'; // v1.0.1
 import { IUser, IUserPreferences } from '../interfaces/IUser';
 import { User } from '../models/User';
 import * as TokenUtils from '../utils/jwt';
@@ -25,8 +23,10 @@ interface AuthResponse {
     version: number;  // Make required
     lastAccess: Date;  // Make required
   };
-  token: string;
-  refreshToken: string;
+  session: {
+    access_token: string;
+    refresh_token: string;
+  };
 }
 
 /**
@@ -48,6 +48,7 @@ export class AuthService {
   private readonly TOKEN_BLACKLIST_PREFIX = 'token:blacklist:';
   private readonly RATE_LIMIT_PREFIX = 'rate:limit:';
   private readonly REFRESH_TOKEN_PREFIX = 'refresh:token:';
+  private supabase;
 
   constructor() {
     this.redisClient = createClient({
@@ -60,6 +61,13 @@ export class AuthService {
 
     this.redisClient.connect().catch(console.error);
     this.setupTokenCleanup();
+
+    // Configure Supabase client with better session handling
+    this.supabase = supabase.auth.setSession({
+      refresh_token_threshold: 60, // Refresh token 1 minute before expiry
+      persistSession: false // We handle persistence ourselves
+    });
+
     console.log('AuthService initialized');
   }
 
@@ -78,6 +86,7 @@ export class AuthService {
 
       // Create user with secure password hashing
       const user = await User.create(userData);
+      console.log('User created:', user);
 
       // Generate authentication tokens
       const [token, refreshToken] = await Promise.all([
@@ -213,17 +222,22 @@ export class AuthService {
    */
   public async verifyAccessToken(token: string): Promise<any> {
     try {
-      // Check token blacklist
+      // Keep your token blacklist check
       const isBlacklisted = await this.isTokenBlacklisted(token);
       if (isBlacklisted) {
         throw new Error('Token has been revoked');
       }
 
-      // Use Supabase's auth.getUser instead of our custom verification
-      const { data: { user }, error } = await supabase.auth.getUser(token);
-      if (error) throw error;
-      return user;
+      // Use Supabase's getUser with error handling
+      const { data: { user }, error } = await this.supabase.auth.getUser(token);
+      if (error) {
+        throw new Error(`Token verification failed: ${error.message}`);
+      }
+      if (!user) {
+        throw new Error('No user found for token');
+      }
 
+      return user;
     } catch (error) {
       throw new Error(`Token verification failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }

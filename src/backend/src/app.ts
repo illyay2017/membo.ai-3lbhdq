@@ -32,88 +32,44 @@ import { DatabaseManager } from './core/database/DatabaseManager';
 // Initialize Express application
 const app: Application = express();
 
-/**
- * Configures Express middleware chain with security and performance features
- */
-const configureMiddleware = (app: Application): void => {
-  // Security headers with strict CSP
-  app.use(helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        scriptSrc: ["'self'"],
-        styleSrc: ["'self'", "'unsafe-inline'"],
-        imgSrc: ["'self'", "data:", "https:"],
-        connectSrc: ["'self'", process.env.SUPABASE_URL!],
-        fontSrc: ["'self'"],
-        objectSrc: ["'none'"],
-        mediaSrc: ["'self'"],
-        frameSrc: ["'none'"]
-      }
-    },
-    crossOriginEmbedderPolicy: true,
-    crossOriginOpenerPolicy: { policy: "same-origin" },
-    crossOriginResourcePolicy: { policy: "same-origin" },
-    dnsPrefetchControl: { allow: false },
-    frameguard: { action: "deny" },
-    hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
-    ieNoOpen: true,
-    noSniff: true,
-    permittedCrossDomainPolicies: { permittedPolicies: "none" },
-    referrerPolicy: { policy: "strict-origin-when-cross-origin" },
-    xssFilter: true
-  }));
+// First: Essential middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cors());
+app.use(helmet());
+app.use(compression());
 
-  // CORS configuration
-  app.use(cors({
-    origin: ['http://localhost:5173'], // Your frontend URL
-    credentials: true, // Required for cookies
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    exposedHeaders: ['set-cookie']
-  }));
-
-  // Request parsing
-  app.use(bodyParser.json({limit: '50mb'}));
-  app.use(bodyParser.urlencoded({limit: '50mb', extended: true}));
-
-  // Response compression
-  app.use(compression({
-    level: 6,
-    threshold: 1024,
-    filter: (req, res) => {
-      if (req.headers['x-no-compression']) return false;
-      return compression.filter(req, res);
-    }
-  }));
-
-  // Request correlation ID
-  app.use((req: Request, res: Response, next: NextFunction) => {
-    req.id = crypto.randomUUID();
-    res.setHeader('X-Request-ID', req.id);
-    next();
+// Second: Debug/logging middleware
+app.use((req, res, next) => {
+  console.log('Request in app.ts:', {
+    method: req.method,
+    path: req.path,
+    baseUrl: req.baseUrl,
+    originalUrl: req.originalUrl,
+    headers: req.headers
   });
+  next();
+});
 
-  // Performance monitoring
-  app.use((req: Request, res: Response, next: NextFunction) => {
-    const start = process.hrtime();
+// Third: Business logic middleware (if any)
+// ... any other middleware ...
 
-    res.on('finish', () => {
-      const [seconds, nanoseconds] = process.hrtime(start);
-      const duration = seconds * 1000 + nanoseconds / 1e6;
+// Fourth: Routes
+app.use('/api/v1', routes);
 
-      logger.info('Request completed', {
-        method: req.method,
-        path: req.path,
-        statusCode: res.statusCode,
-        duration,
-        requestId: req.id
-      });
-    });
-
-    next();
+// Finally: Error handling
+app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+  logger.error('Unhandled error:', {
+    error: err.message,
+    stack: err.stack,
+    path: req.path,
+    method: req.method
   });
-};
+  res.status(500).json({
+    message: 'Internal server error',
+    statusCode: 500
+  });
+});
 
 // Create and configure HTTP server
 const server = http.createServer(app);
@@ -123,35 +79,6 @@ server.timeout = 30000;
 server.keepAliveTimeout = 65000;
 server.maxHeadersCount = 100;
 server.maxConnections = parseInt(process.env.MAX_CONNECTIONS || '1000', 10);
-
-// Configure middleware
-configureMiddleware(app);
-
-// Mount API routes with proper base path
-app.use('/api', routes);
-
-// Add a debug middleware to log incoming requests
-app.use((req: Request, res: Response, next: NextFunction) => {
-  console.log(`${req.method} ${req.path}`);
-  next();
-});
-
-// Global error handler
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-  logger.error('Unhandled error:', {
-    error: err.message,
-    stack: err.stack,
-    path: req.path,
-    method: req.method,
-    requestId: req.id
-  });
-
-  res.status(500).json({
-    status: 500,
-    message: 'Internal server error',
-    requestId: req.id
-  });
-});
 
 // Initialize dependencies with proper configuration
 const wsLogger = winston.createLogger({

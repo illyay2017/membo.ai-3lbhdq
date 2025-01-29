@@ -13,6 +13,9 @@ import { createClient } from 'redis';
 import { ErrorCodes, createErrorDetails } from '../../constants/errorCodes';
 import { AuthService } from '../../services/AuthService';
 
+// At the top of the file, add debug logging
+console.log('Loading auth.routes.ts');
+
 // Initialize Redis client for rate limiting
 const redisClient = createClient({
   url: process.env.REDIS_URL,
@@ -36,6 +39,17 @@ const router = Router({
   caseSensitive: true,
   strict: true,
   mergeParams: false
+});
+
+// Debug middleware for auth routes specifically
+router.use((req, res, next) => {
+  console.log('Request in auth.routes.ts:', {
+    method: req.method,
+    path: req.path,
+    baseUrl: req.baseUrl,
+    originalUrl: req.originalUrl
+  });
+  next();
 });
 
 // Connect Redis client
@@ -123,6 +137,7 @@ router.post('/register', async (req, res) => {
  * User login endpoint with validation and rate limiting
  */
 router.post('/login', async (req, res, next) => {
+  console.log('Login request received in auth.routes.ts');
   try {
     // Add metadata before validation
     req.body = {
