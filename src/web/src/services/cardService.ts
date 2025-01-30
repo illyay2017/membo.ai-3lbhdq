@@ -87,8 +87,7 @@ export const cardService = {
       ...validatedData,
       fsrsData
     });
-
-    return response;
+    return response.data;
   },
 
   /**
@@ -101,7 +100,7 @@ export const cardService = {
     studyMode?: STUDY_MODES 
   }): Promise<{ cards: Card[]; total: number }> {
     const response = await api.get(API_ENDPOINTS.CARDS, { params });
-    return response;
+    return response.data;
   },
 
   /**
@@ -109,7 +108,7 @@ export const cardService = {
    */
   async getCardById(id: string): Promise<Card> {
     const response = await api.get<Card>(API_ENDPOINTS.CARD_BY_ID.replace('{id}', id));
-    return response;
+    return response.data;
   },
 
   /**

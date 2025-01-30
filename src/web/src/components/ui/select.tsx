@@ -42,7 +42,7 @@ export interface SelectProps extends React.ComponentPropsWithoutRef<typeof Selec
 }
 
 // Utility function for generating select variant classes
-export const selectVariants = React.memo(({ 
+const selectVariants = ({ 
   variant = "primary",
   size = "md",
   disabled,
@@ -65,7 +65,7 @@ export const selectVariants = React.memo(({
     // Custom className
     className
   )
-})
+}
 
 // Select component implementation
 export const Select = React.forwardRef<

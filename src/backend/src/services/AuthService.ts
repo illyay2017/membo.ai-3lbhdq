@@ -401,3 +401,35 @@ export class AuthService {
     }, 60 * 60 * 1000); // Run every hour
   }
 }
+
+/**
+ * Clears user session and invalidates tokens
+ * @param userId User ID to clear session for
+ */
+export async function clearUserSession(userId: string): Promise<void> {
+  try {
+    // Initialize Supabase client
+    const supabase = createSupabaseClient();
+    
+    // Sign out from Supabase
+    const { error: signOutError } = await supabase.auth.signOut();
+    if (signOutError) {
+      console.error('Supabase sign out error:', signOutError);
+    }
+
+    // Clear Redis session
+    const redisClient = createClient({
+      url: process.env.REDIS_URL
+    });
+    await redisClient.connect();
+    
+    try {
+      await redisClient.del(`user_session:${userId}`);
+    } finally {
+      await redisClient.quit();
+    }
+  } catch (error) {
+    console.error('Failed to clear user session:', error);
+    // Continue with logout even if cleanup fails
+  }
+}

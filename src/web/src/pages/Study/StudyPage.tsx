@@ -82,6 +82,11 @@ const StudyPage: React.FC<StudyPageProps> = ({
   const [showConfidence, setShowConfidence] = useState(false);
   const [sessionProgress, setSessionProgress] = useState({ current: 0, total: 0 });
 
+  // Performance tracking
+  const trackMetric = useCallback((name: string, value: number) => {
+    performanceMonitor.trackMetric(name as any, value);
+  }, []);
+
   /**
    * Initialize study session with configuration
    */
@@ -89,19 +94,23 @@ const StudyPage: React.FC<StudyPageProps> = ({
     const initSession = async () => {
       try {
         const modeConfig = STUDY_MODE_CONFIG[mode];
+        const cardsPerSession = settings.cardsPerSession || modeConfig.maxCardsPerSession;
+        
+        // Set initial progress state
+        setSessionProgress({
+          current: 0,
+          total: cardsPerSession
+        });
+
+        // Start the session
         await startSession({
           sessionDuration: settings.sessionDuration || modeConfig.sessionDuration,
-          cardsPerSession: settings.cardsPerSession || modeConfig.maxCardsPerSession,
+          cardsPerSession,
           voiceEnabled: settings.voiceEnabled || mode === STUDY_MODES.VOICE,
           voiceConfidenceThreshold: settings.voiceConfidenceThreshold || modeConfig.voiceConfidenceThreshold,
           voiceLanguage: settings.voiceLanguage || 'en-US',
           showConfidenceButtons: modeConfig.showConfidenceButtons,
           enableFSRS: modeConfig.enableFSRS
-        });
-
-        setSessionProgress({
-          current: 0,
-          total: settings.cardsPerSession || modeConfig.maxCardsPerSession
         });
       } catch (error) {
         onError?.(error as Error);
@@ -109,7 +118,8 @@ const StudyPage: React.FC<StudyPageProps> = ({
     };
 
     initSession();
-  }, [mode, settings, startSession, onError]);
+  }, [mode, settings.cardsPerSession, settings.sessionDuration, settings.voiceEnabled, 
+      settings.voiceConfidenceThreshold, settings.voiceLanguage, startSession, onError]);
 
   /**
    * Handle card answer submission with performance tracking
@@ -123,12 +133,14 @@ const StudyPage: React.FC<StudyPageProps> = ({
       await submitReview(confidence, { transcript: answer, confidence });
       
       trackMetric('answerProcessingTime', performance.now() - startTime);
+      
+      const newProgress = sessionProgress.current + 1;
       setSessionProgress(prev => ({
         ...prev,
-        current: prev.current + 1
+        current: newProgress
       }));
 
-      if (sessionProgress.current + 1 >= sessionProgress.total) {
+      if (newProgress >= sessionProgress.total) {
         await endSession();
         onSessionComplete?.();
       } else {
@@ -137,7 +149,7 @@ const StudyPage: React.FC<StudyPageProps> = ({
     } catch (error) {
       onError?.(error as Error);
     }
-  }, [submitReview, loadNextCard, endSession, onSessionComplete, onError, sessionProgress, trackMetric]);
+  }, [submitReview, loadNextCard, endSession, onSessionComplete, onError, trackMetric]);
 
   /**
    * Handle confidence rating submission
@@ -179,11 +191,6 @@ const StudyPage: React.FC<StudyPageProps> = ({
       endSession();
     };
   }, [endSession]);
-
-  // Replace usePerformanceMonitor hook with direct usage
-  const trackMetric = useCallback((name: string, value: number) => {
-    performanceMonitor.trackMetric(name as any, value);
-  }, []);
 
   return (
     <ErrorBoundary

@@ -5,8 +5,7 @@
  * @version 1.0.0
  */
 
-import { setAuthToken, clearAuthToken } from '../lib/api';
-import { setAuthTokens, clearAuthTokens } from '../lib/storage';
+import { getAccessToken, setAuthTokens, clearAuthTokens } from '../lib/storage';
 import { LoginCredentials, RegisterCredentials, AuthResponse, AuthTokens } from '../types/auth';
 import { API_ENDPOINTS } from '../constants/api';
 
@@ -23,47 +22,32 @@ let tokenRefreshInterval: ReturnType<typeof setInterval> | null = null;
  * @throws Error if authentication fails
  */
 export async function login(credentials: LoginCredentials): Promise<AuthResponse> {
-  try {
-    // Add debug logging
-    console.log('Attempting login to:', API_ENDPOINTS.AUTH.LOGIN);
-    console.log('With credentials:', { email: credentials.email, password: '***' });
+  const response = await fetch(API_ENDPOINTS.AUTH.LOGIN, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(credentials)
+  });
 
-    const response = await fetch(API_ENDPOINTS.AUTH.LOGIN, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(credentials),
-      credentials: 'include' // Important for cookies
-    });
-
-    console.log('Response status:', response.status);
-    console.log('Response headers:', Object.fromEntries(response.headers.entries()));
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => null);
-      console.error('Error response:', errorData);
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json();
-
-    // Validate response - updated to match backend structure
-    if (!data?.token || !data?.user) {
-      throw new Error('Invalid authentication response');
-    }
-
-    // Setup authentication state with new structure
-    await setupAuthState({
-      accessToken: data.token,
-      refreshToken: data.refreshToken
-    });
-
-    return data;
-  } catch (error) {
-    console.error('Login failed:', error);
-    throw new Error(error instanceof Error ? error.message : 'Authentication failed');
+  if (!response.ok) {
+    throw new Error('Authentication failed');
   }
+
+  const data = await response.json();
+  
+  // Transform response to expected format
+  const authResponse: AuthResponse = {
+    user: data.user,
+    tokens: {
+      accessToken: data.token,
+      refreshToken: data.refreshToken,
+      expiresIn: 3600
+    }
+  };
+
+  // Store tokens
+  setAuthTokens(authResponse.tokens);
+
+  return authResponse;
 }
 
 /**
@@ -138,22 +122,15 @@ export async function register(userData: RegisterCredentials): Promise<AuthRespo
  */
 export async function logout(): Promise<void> {
   try {
-    // Attempt server-side logout
-    const response = await fetch(API_ENDPOINTS.AUTH.LOGOUT, {
+    await fetch(API_ENDPOINTS.AUTH.LOGOUT, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${getAccessToken()}`
       }
     });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-  } catch (error) {
-    console.error('Logout request failed:', error);
   } finally {
-    // Clean up local auth state regardless of server response
-    cleanupAuthState();
+    clearAuthTokens();
   }
 }
 

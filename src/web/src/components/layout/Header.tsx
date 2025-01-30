@@ -5,7 +5,7 @@
  */
 
 import React, { useCallback, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { 
   Menu, 
   Bell, 
@@ -14,7 +14,8 @@ import {
   Sun, 
   Moon, 
   LogOut,
-  ChevronDown
+  ChevronDown,
+  Loader2Icon
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import Button from '../ui/button';

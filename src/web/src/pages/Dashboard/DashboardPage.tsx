@@ -1,8 +1,8 @@
-import React, { useEffect, useCallback, useMemo } from 'react';
-import { cn } from 'classnames';
+import React, { useEffect, useCallback, useMemo, useState } from 'react';
+import { cn } from '../../lib/utils';
 import { ErrorBoundary } from 'react-error-boundary';
+import { api } from '../../lib/api';
 
-import AppShell from '../../components/layout/AppShell';
 import StudyStats from '../../components/study/StudyStats';
 import ContentList from '../../components/content/ContentList';
 import { useWebSocket } from '../../hooks/useWebSocket';
@@ -17,6 +17,10 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
   className,
   offlineMode = false
 }) => {
+  const [recentContent, setRecentContent] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   // Initialize study session with offline support
   const {
     performance,
@@ -31,6 +35,24 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
     localStorage.getItem('authToken') || '',
     { autoReconnect: true }
   );
+
+  // Fetch recent content
+  useEffect(() => {
+    const fetchRecentContent = async () => {
+      try {
+        setIsLoading(true);
+        const response = await api.get('/content/recent');
+        setRecentContent(response.data);
+      } catch (err) {
+        setError('Failed to load recent content');
+        console.error('Error fetching recent content:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchRecentContent();
+  }, []);
 
   // Handle real-time performance updates
   const handlePerformanceUpdate = useCallback((data: any) => {
@@ -56,7 +78,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
           Dashboard Error
         </h3>
         <p className="text-sm text-gray-600 dark:text-gray-400">
-          {error.message}
+          {error?.message}
         </p>
         <button
           onClick={() => window.location.reload()}
@@ -77,72 +99,47 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
 
   return (
     <ErrorBoundary FallbackComponent={ErrorFallback}>
-      <AppShell>
-        <main className={containerClasses}>
-          {/* Study Statistics Section */}
-          <section className="col-span-full lg:col-span-2">
-            <StudyStats
-              className="h-full"
-              variant="detailed"
-              showVoiceMetrics={voiceMode.enabled}
-              offlineMode={isOffline}
-            />
-            
-            {/* Offline Indicator */}
-            {isOffline && (
-              <div className="mt-4 p-4 bg-warning/10 rounded-lg" role="alert">
-                <p className="text-sm text-warning flex items-center gap-2">
-                  ⚠️ Offline Mode - Changes will sync when connection is restored
-                  {syncStatus.pendingSync && (
-                    <span className="text-xs">
-                      ({syncStatus.pendingSync} updates pending)
-                    </span>
-                  )}
+      <div className={cn('space-y-6', className)}>
+        {/* Recent Content Section */}
+        <section>
+          <h2 className="text-2xl font-semibold mb-4">Recent Content</h2>
+          <ContentList 
+            items={recentContent}
+            loading={isLoading}
+            error={error}
+          />
+        </section>
+
+        {/* Performance Overview Section */}
+        <section>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+            <h2 className="text-lg font-semibold mb-4">Performance Overview</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="text-center">
+                <p className="text-2xl font-bold text-primary">
+                  {performance.retentionRate.toFixed(1)}%
                 </p>
+                <p className="text-sm text-gray-500">Retention Rate</p>
               </div>
-            )}
-          </section>
-
-          {/* Recent Content Section */}
-          <section className="col-span-full lg:col-span-1">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
-              <h2 className="text-lg font-semibold mb-4">Recent Content</h2>
-              <ContentList
-                className="h-[600px]"
-                virtualScroll
-                ariaLabel="Recent content items"
-              />
-            </div>
-          </section>
-
-          {/* Performance Metrics Section */}
-          <section className="col-span-full">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-              <h2 className="text-lg font-semibold mb-4">Performance Overview</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-primary">
-                    {performance.retentionRate.toFixed(1)}%
-                  </p>
-                  <p className="text-sm text-gray-500">Retention Rate</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-accent">
-                    {performance.studyStreak}
-                  </p>
-                  <p className="text-sm text-gray-500">Day Streak</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-secondary">
-                    {performance.totalCards}
-                  </p>
-                  <p className="text-sm text-gray-500">Cards Studied</p>
-                </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-accent">
+                  {performance.studyStreak}
+                </p>
+                <p className="text-sm text-gray-500">Day Streak</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-secondary">
+                  {performance.totalCards}
+                </p>
+                <p className="text-sm text-gray-500">Cards Studied</p>
               </div>
             </div>
-          </section>
-        </main>
-      </AppShell>
+          </div>
+        </section>
+
+        {/* Study Stats Section */}
+        <StudyStats className="mt-6" />
+      </div>
     </ErrorBoundary>
   );
 };

@@ -19,6 +19,8 @@ import InboxPage from './pages/Content/InboxPage';
 import StudyPage from './pages/Study/StudyPage';
 import CardsPage from './pages/Cards/CardsPage';
 import DashboardPage from './pages/Dashboard/DashboardPage';
+import SettingsPage from './pages/Settings/SettingsPage';
+import { useUIStore } from './store/uiStore';
 
 // Session refresh configuration
 const SESSION_REFRESH_INTERVAL = 25 * 60 * 1000; // 25 minutes
@@ -98,148 +100,69 @@ const ErrorFallback: React.FC<{ error: Error }> = ({ error }) => (
  * and responsive layout structure
  */
 const App: React.FC = React.memo(() => {
-  const { isLoading, isAuthenticated, user } = useAuth();
-  const { refreshUserSession } = useAuthStore();
+  const { isLoading, isAuthenticated } = useAuth();
+  const { initializeAuth } = useAuthStore();
   const location = useLocation();
   const analyticsEnabled = !!import.meta.env.VITE_MIXPANEL_TOKEN;
 
-  // Initialize analytics only if token exists
-  const mixpanelToken = import.meta.env.VITE_MIXPANEL_TOKEN;
+  useEffect(() => {
+    initializeAuth();
+  }, []);
 
   useEffect(() => {
-    if (!isLoading && analyticsEnabled) {
-      try {
-        analytics.initializeAnalytics(mixpanelToken, {
-          enableTracking: true,
-          privacySettings: {
-            gdprCompliance: true
-          }
-        });
-      } catch (error) {
-        console.warn('Analytics initialization skipped:', error);
-      }
-    }
-  }, [isLoading, analyticsEnabled]);
-
-  // Only track events if analytics is enabled
-  useEffect(() => {
-    if (analyticsEnabled && !isLoading && isAuthenticated && user) {
-      analytics.trackUserLogin(user);
-    }
-  }, [isLoading, isAuthenticated, user, analyticsEnabled]);
-
-  useEffect(() => {
-    if (analyticsEnabled && !isLoading && isAuthenticated) {
-      analytics.trackCardInteraction({
-        type: 'page_view',
-        path: location.pathname,
-        timestamp: Date.now()
-      });
-    }
-  }, [location.pathname, isLoading, isAuthenticated, analyticsEnabled]);
-
-  // Initialize session refresh interval
-  useEffect(() => {
-    let refreshInterval: NodeJS.Timeout;
-    let retryCount = 0;
-
-    const refreshSession = async () => {
-      try {
-        await refreshUserSession();
-        retryCount = 0;
-      } catch (error) {
-        console.error('Session refresh failed:', error);
-        if (retryCount < MAX_RETRY_ATTEMPTS) {
-          retryCount++;
-          setTimeout(refreshSession, RETRY_DELAY * Math.pow(2, retryCount));
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    
+    const handleChange = (e: MediaQueryListEvent) => {
+      if (useUIStore.getState().theme.mode === 'system') {
+        if (e.matches) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
         }
       }
     };
 
-    if (isAuthenticated) {
-      refreshInterval = setInterval(refreshSession, SESSION_REFRESH_INTERVAL);
-      refreshSession();
-    }
+    mediaQuery.addEventListener('change', handleChange);
+    
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
 
-    return () => {
-      if (refreshInterval) {
-        clearInterval(refreshInterval);
-      }
-    };
-  }, [isAuthenticated, refreshUserSession]);
-
-  // Track route changes
-  useEffect(() => {
-    if (analyticsEnabled) {
-      analytics.trackCardInteraction({
-        type: 'route_access',
-        path: location.pathname,
-        timestamp: Date.now()
-      });
-    }
-  }, [location.pathname, isLoading, isAuthenticated, analyticsEnabled]);
+  if (isLoading) {
+    return <div>Loading...</div>; // Or your loading component
+  }
 
   return (
     <ErrorBoundary FallbackComponent={ErrorFallback}>
-      <AppShell>
-        <Routes>
-          {/* Public routes */}
-          <Route path={ROUTES.AUTH.LOGIN} element={<LoginPage />} />
-          <Route path={ROUTES.AUTH.REGISTER} element={<RegisterPage />} />
-          <Route path={ROUTES.AUTH.FORGOT_PASSWORD} element={<ForgotPasswordPage />} />
-          <Route path={ROUTES.AUTH.RESET_PASSWORD} element={<ResetPasswordPage />} />
-          <Route path={ROUTES.AUTH.VERIFY_EMAIL} element={<VerifyEmailPage />} />
+      <Routes>
+        {/* Public routes */}
+        <Route path={ROUTES.AUTH.LOGIN} element={
+          isAuthenticated ? <Navigate to={ROUTES.DASHBOARD.HOME} replace /> : <LoginPage />
+        } />
+        <Route path={ROUTES.AUTH.REGISTER} element={<RegisterPage />} />
+        <Route path={ROUTES.AUTH.FORGOT_PASSWORD} element={<ForgotPasswordPage />} />
+        <Route path={ROUTES.AUTH.RESET_PASSWORD} element={<ResetPasswordPage />} />
+        <Route path={ROUTES.AUTH.VERIFY_EMAIL} element={<VerifyEmailPage />} />
 
-          {/* Protected routes */}
-          <Route
-            path={ROUTES.CONTENT.INBOX}
-            element={
-              <ProtectedRoute>
-                <InboxPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path={ROUTES.STUDY.HOME}
-            element={
-              <ProtectedRoute>
-                <StudyPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path={ROUTES.CARDS.LIST}
-            element={
-              <ProtectedRoute>
-                <CardsPage />
-              </ProtectedRoute>
-            }
-            errorElement={<ErrorComponent />}
-          />
-          <Route
-            path={ROUTES.DASHBOARD.HOME}
-            element={
-              <ProtectedRoute>
-                <DashboardPage />
-              </ProtectedRoute>
-            }
-          />
+        {/* Protected routes */}
+        <Route element={
+          <ProtectedRoute>
+            <AppShell />
+          </ProtectedRoute>
+        }>
+          <Route path={ROUTES.DASHBOARD.HOME} element={<DashboardPage />} />
+          <Route path={ROUTES.CONTENT.INBOX} element={<InboxPage />} />
+          <Route path={ROUTES.STUDY.HOME} element={<StudyPage />} />
+          <Route path={ROUTES.CARDS.LIST} element={<CardsPage />} />
+          <Route path={ROUTES.SETTINGS.HOME} element={<SettingsPage />} />
+        </Route>
 
-          {/* Default redirect */}
-          <Route
-            path="/"
-            element={
-              <Navigate
-                to={isAuthenticated ? ROUTES.DASHBOARD.HOME : ROUTES.AUTH.LOGIN}
-                replace
-              />
-            }
-          />
-
-          {/* 404 fallback */}
-          <Route path="*" element={<ErrorComponent />} />
-        </Routes>
-      </AppShell>
+        {/* Default redirect */}
+        <Route path="/" element={
+          <Navigate to={isAuthenticated ? ROUTES.DASHBOARD.HOME : ROUTES.AUTH.LOGIN} replace />
+        } />
+        
+        <Route path="*" element={<ErrorComponent />} />
+      </Routes>
     </ErrorBoundary>
   );
 });

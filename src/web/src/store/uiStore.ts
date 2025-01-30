@@ -140,7 +140,18 @@ export const useUIStore = create<UIState>()(
         set({ theme: newTheme });
 
         // Apply theme to document
-        document.documentElement.setAttribute('data-theme', mode);
+        if (mode === 'dark') {
+          document.documentElement.classList.add('dark');
+        } else if (mode === 'light') {
+          document.documentElement.classList.remove('dark');
+        } else if (mode === 'system') {
+          if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+          }
+        }
+
         document.documentElement.style.setProperty('--accent', newTheme.accent);
 
         // Persist theme preferences

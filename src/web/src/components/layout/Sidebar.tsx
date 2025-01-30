@@ -139,11 +139,12 @@ export const Sidebar = React.memo<SidebarProps>(({
   return (
     <aside
       className={cn(
-        'flex flex-col border-r border-gray-200 bg-white transition-all duration-300',
+        'flex flex-col border-r bg-background dark:bg-gray-900',
         isCollapsed ? 'w-16' : 'w-64',
         'h-[calc(100vh-var(--header-height))] sticky top-[var(--header-height)]',
         'md:relative md:translate-x-0',
         !isCollapsed && 'md:w-64',
+        'z-30',
         className
       )}
       aria-label={ariaLabel}

@@ -4,14 +4,15 @@
  * @version 1.0.0
  */
 
-import { Router } from 'express'; // ^4.18.2
+import { Router, Response } from 'express'; // ^4.18.2
 import { AuthController } from '../controllers/AuthController';
 import { validateLoginRequest, validateRegistrationRequest } from '../validators/auth.validator';
 import { authenticate } from '../middlewares/auth.middleware';
 import { RateLimiterRedis } from 'rate-limiter-flexible';
 import { createClient } from 'redis';
 import { ErrorCodes, createErrorDetails } from '../../constants/errorCodes';
-import { AuthService } from '../../services/AuthService';
+import { AuthService, clearUserSession } from '../../services/AuthService';
+import { AuthenticatedRequest } from '../middlewares/auth.middleware';
 
 // At the top of the file, add debug logging
 console.log('Loading auth.routes.ts');
@@ -261,17 +262,23 @@ router.post('/refresh-token', authenticate, async (req, res) => {
  * POST /api/auth/logout
  * Secure logout endpoint with token invalidation
  */
-router.post('/logout', authenticate, async (req, res) => {
+router.post('/logout', authenticate, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const authController = new AuthController(req.app.locals.authService, rateLimiter);
-    const result = await authController.logout(req, res);
-    return result;
+    // Add logging here
+    console.log('Logout request received:', {
+      user: req.user,
+      token: req.headers.authorization
+    });
+
+    // Clear the token from any blacklist/storage
+    if (req.user) {
+      await clearUserSession(req.user.id);
+    }
+
+    res.status(200).json({ message: 'Successfully logged out' });
   } catch (error) {
-    return res.status(500).json(createErrorDetails(
-      ErrorCodes.INTERNAL_SERVER_ERROR,
-      'Logout failed. Please try again later.',
-      req.originalUrl
-    ));
+    console.error('Logout error:', error);
+    res.status(500).json({ error: 'Failed to logout' });
   }
 });
 

@@ -70,9 +70,17 @@ export const authenticate = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    // Add detailed logging
+    console.log('Auth middleware headers:', {
+      authorization: req.headers.authorization,
+      path: req.path,
+      method: req.method
+    });
+
     const token = extractBearerToken(req.headers.authorization);
     
     if (!token) {
+      console.log('No token found in request');
       const error = createErrorDetails(
         ErrorCodes.UNAUTHORIZED,
         'No authentication token provided',
@@ -82,6 +90,9 @@ export const authenticate = async (
       return;
     }
 
+    // Log token for debugging
+    console.log('Token found:', token.substring(0, 10) + '...');
+    
     // Verify token and extract payload
     const decoded = await verifyToken(token);
 

@@ -5,7 +5,7 @@
  */
 
 import { z } from 'zod'; // v3.22.4
-import { LoginCredentials, RegisterCredentials } from '../types/auth';
+import { LoginCredentials, RegisterCredentials, ProfileFormData } from '../types/auth';
 import { CardCreateInput } from '../types/card';
 import { ContentCreateInput, ContentSource } from '../types/content';
 
@@ -186,3 +186,18 @@ export const validateEmail = (email: string): true | string => {
   
   return true;
 };
+
+export function validateProfileData(data: ProfileFormData): boolean {
+  if (!data.firstName || !data.lastName || !data.email) {
+    return false;
+  }
+
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  const nameRegex = /^[a-zA-Z\s-']+$/;
+
+  return (
+    nameRegex.test(data.firstName) &&
+    nameRegex.test(data.lastName) &&
+    emailRegex.test(data.email)
+  );
+}
