@@ -97,7 +97,7 @@ const AppShell: React.FC<AppShellProps> = ({ children, className }) => {
             'min-h-[calc(100vh-var(--header-height))]',
             'bg-background dark:bg-gray-900'
           )} role="main">
-            {children}
+            <Outlet />
           </main>
         </div>
 
