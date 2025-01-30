@@ -9,24 +9,25 @@ import { IUser, IUserPreferences } from '../interfaces/IUser';
 import { User } from '../models/User';
 import * as TokenUtils from '../utils/jwt';
 import { createSupabaseClient } from '../config/supabase';
-import { UserRole } from '@/constants/userRoles';
+import { UserRole } from '../constants/userRoles';
+
+/**
+ * Define interface for registration request data
+ */
+interface IRegistrationData {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+}
 
 /**
  * Interface for authentication response
  */
 interface AuthResponse {
-  user: {
-    id: string;
-    email: string;
-    role: UserRole;  // Use enum instead of string
-    preferences: IUserPreferences;  // Use proper interface
-    version: number;  // Make required
-    lastAccess: Date;  // Make required
-  };
-  session: {
-    access_token: string;
-    refresh_token: string;
-  };
+  user: Pick<IUser, 'id' | 'email' | 'firstName' | 'lastName' | 'role'>;
+  token: string;
+  refreshToken: string;
 }
 
 /**
@@ -45,6 +46,7 @@ const RATE_LIMITS = {
  */
 export class AuthService {
   private redisClient;
+  private supabase;
   private readonly TOKEN_BLACKLIST_PREFIX = 'token:blacklist:';
   private readonly RATE_LIMIT_PREFIX = 'rate:limit:';
   private readonly REFRESH_TOKEN_PREFIX = 'refresh:token:';
@@ -57,7 +59,8 @@ export class AuthService {
         rejectUnauthorized: true
       }
     });
-
+    
+    this.supabase = createSupabaseClient();
     this.redisClient.connect().catch(console.error);
     this.setupTokenCleanup();
 
@@ -69,25 +72,42 @@ export class AuthService {
    * @param userData User registration data
    * @returns Authentication response with tokens
    */
-  public async register(userData: Partial<IUser>): Promise<AuthResponse> {
+  public async register(userData: IRegistrationData): Promise<AuthResponse> {
     try {
-      // Validate password strength
-      this.validatePassword(userData.password!);
+      this.validatePassword(userData.password);
 
-      // Sanitize email
-      userData.email = userData.email?.toLowerCase().trim();
+      const { data: authData, error: authError } = await this.supabase.auth.signUp({
+        email: userData.email,
+        password: userData.password,
+        options: {
+          data: {
+            firstName: userData.firstName,
+            lastName: userData.lastName
+          }
+        }
+      });
 
-      // Create user with secure password hashing
-      const user = await User.create(userData);
-      console.log('User created:', user);
+      if (authError) throw new Error(`Registration failed: ${authError.message}`);
+      if (!authData.user) throw new Error('Registration failed: No user data returned');
 
-      // Generate authentication tokens
+      // Create user object conforming to IUser interface
+      const user: Pick<IUser, 'id' | 'email' | 'firstName' | 'lastName' | 'role'> = {
+        id: authData.user.id,
+        email: authData.user.email!,
+        firstName: authData.user.user_metadata.firstName,
+        lastName: authData.user.user_metadata.lastName,
+        role: UserRole.FREE_USER
+      };
+
       const [token, refreshToken] = await Promise.all([
-        TokenUtils.generateToken(user),
-        TokenUtils.generateRefreshToken(user)
+        TokenUtils.generateToken(user).catch(error => {
+          throw new Error(`Token generation failed: ${error.message}`);
+        }),
+        TokenUtils.generateRefreshToken(user).catch(error => {
+          throw new Error(`Refresh token generation failed: ${error.message}`);
+        })
       ]);
 
-      // Store refresh token
       await this.storeRefreshToken(user.id, refreshToken);
 
       return { user, token, refreshToken };
@@ -157,15 +177,15 @@ export class AuthService {
         user: {
           id: authData.user.id,
           email: authData.user.email!,
+          firstName: authData.user.user_metadata.firstName,
+          lastName: authData.user.user_metadata.lastName,
           role: userData.role,
           preferences: userData.preferences,
           version: userData.version,
           lastAccess: new Date(userData.last_access)
         },
-        session: {
-          access_token: authData.session.access_token,
-          refresh_token: authData.session.refresh_token
-        }
+        token: authData.session.access_token,
+        refreshToken: authData.session.refresh_token
       };
 
     } catch (error) {

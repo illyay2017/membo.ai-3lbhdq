@@ -30,6 +30,8 @@ export interface RegisterCredentials {
     firstName: string;
     /** User's last name for profile information */
     lastName: string;
+    /** User's captcha token for registration */
+    captchaToken?: string;
 }
 
 /**
@@ -40,9 +42,9 @@ export interface AuthTokens {
     /** JWT access token for API authorization */
     accessToken: string;
     /** JWT refresh token for obtaining new access tokens */
-    refreshToken: string;
+    refreshToken?: string;
     /** Token expiration time in seconds (30 minutes) */
-    expiresIn: number;
+    expiresIn?: number;
 }
 
 /**
@@ -61,7 +63,7 @@ export interface UserData {
     /** User's role for role-based access control */
     role: UserRole;
     /** Indicates whether the user's email has been verified */
-    isEmailVerified: boolean;
+    isEmailVerified?: boolean;
 }
 
 /**
@@ -73,4 +75,6 @@ export interface AuthResponse {
     user: UserData;
     /** Authentication tokens for API access */
     tokens: AuthTokens;
+    /** Token for backward compatibility */
+    token: string;
 }

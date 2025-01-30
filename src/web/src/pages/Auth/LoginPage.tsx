@@ -6,13 +6,14 @@
 
 import React, { useState, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { analytics } from '../../utils/analytics';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { useAuth } from '../../hooks/useAuth';
 import { sanitizeInput } from '../../utils/validation';
 import { colors, typography } from '../../constants/theme';
+import { ROUTES } from '../../constants/routes';
 
 // Form data interface
 interface LoginFormData {
@@ -53,45 +54,34 @@ const LoginPage: React.FC = () => {
   } = useForm<LoginFormData>();
 
   // Form submission handler
-  const onSubmit = useCallback(async (formData: LoginFormData) => {
+  const onSubmit = useCallback(async (data: LoginFormData) => {
     try {
       setError(null);
+      console.log('Starting login process...');
 
-      // Sanitize inputs
-      const sanitizedEmail = sanitizeInput(formData.email);
-      const sanitizedPassword = sanitizeInput(formData.password);
+      const sanitizedEmail = sanitizeInput(data.email);
+      const sanitizedPassword = sanitizeInput(data.password);
 
-      // Track login attempt if analytics is available
       analytics.track('Login Attempt', {
         timestamp: new Date().toISOString()
       });
 
-      // Attempt login
+      console.log('Calling login function...');
       await login({
         email: sanitizedEmail,
         password: sanitizedPassword
       });
+      console.log('Login successful, attempting navigation...');
 
-      // Track successful login if analytics is available
-      if (analytics?.track) {
-        analytics.track('Login Success', {
-          timestamp: new Date().toISOString()
-        });
-      }
+      analytics.track('Login Success', {
+        timestamp: new Date().toISOString()
+      });
 
-      navigate('/dashboard');
-
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Login failed';
-      setError(errorMessage);
-
-      // Track failure if analytics is available
-      if (analytics?.track) {
-        analytics.track('Login Failed', {
-          error: errorMessage,
-          timestamp: new Date().toISOString()
-        });
-      }
+      navigate(ROUTES.DASHBOARD.HOME, { replace: true });
+      console.log('Navigation called to:', ROUTES.DASHBOARD.HOME);
+    } catch (error) {
+      console.error('Login error:', error);
+      setError(error instanceof Error ? error.message : 'Login failed');
     }
   }, [login, navigate]);
 
@@ -117,7 +107,13 @@ const LoginPage: React.FC = () => {
             type="email"
             label="Email Address"
             error={errors.email?.message}
-            {...register('email')}
+            {...register('email', {
+              required: 'Email is required',
+              pattern: {
+                value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                message: 'Invalid email address'
+              }
+            })}
             onChange={(value) => setValue('email', value)}
             autoComplete="username"
           />
@@ -128,7 +124,13 @@ const LoginPage: React.FC = () => {
             type="password"
             label="Password"
             error={errors.password?.message}
-            {...register('password')}
+            {...register('password', {
+              required: 'Password is required',
+              minLength: {
+                value: 8,
+                message: 'Password must be at least 8 characters'
+              }
+            })}
             onChange={(value) => setValue('password', value)}
             autoComplete="current-password"
           />
@@ -178,13 +180,13 @@ const LoginPage: React.FC = () => {
           {/* Sign Up Link */}
           <p className="text-center text-sm" style={{ color: colors.secondary }}>
             Don't have an account?{' '}
-            <a
-              href="/auth/register"
+            <Link
+              to={ROUTES.AUTH.REGISTER}
               className="hover:text-primary-dark transition-colors"
               style={{ color: colors.primary }}
             >
               Sign up
-            </a>
+            </Link>
           </p>
         </form>
       </div>

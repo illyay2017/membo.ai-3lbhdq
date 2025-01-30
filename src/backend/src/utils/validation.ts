@@ -18,21 +18,17 @@ const VALIDATION_CACHE_TTL = 300; // 5 minutes in seconds
 // Types for validation results and options
 export interface ValidationResult {
   isValid: boolean;
-  errors: Array<{
-    field?: string;
-    message: string;
-    code?: string;
-    severity?: string;
-  }>;
+  errors: ValidationError[];
   metadata?: Record<string, any>;
   data?: any;
+  suggestions?: string[];
 }
 
 interface ValidationError {
   field: string;
   message: string;
-  code: string;
-  severity: 'error' | 'warning';
+  code?: string;
+  severity?: 'error' | 'warning';
 }
 
 interface EmailValidationOptions {
@@ -58,59 +54,104 @@ const validationCache = new Map<string, { result: ValidationResult; timestamp: n
 
 /**
  * Enhanced schema validation using Joi with caching and detailed error reporting
- * @param data - Data to validate
  * @param schemaRules - Schema rules in the format of key-value pairs
- * @param options - Additional validation options
+ * @param data - Data to validate
  * @returns Detailed validation result
  */
 export const validateSchema = (
-  data: unknown,
-  schemaRules: Record<string, string>,
-  options?: Joi.ValidationOptions
+  schemaRules: Record<string, any>,
+  data: unknown
 ): ValidationResult => {
-  const cacheKey = JSON.stringify({ schema: schemaRules, data });
-  const cachedResult = validationCache.get(cacheKey);
-
-  if (cachedResult && Date.now() - cachedResult.timestamp < VALIDATION_CACHE_TTL * 1000) {
-    return cachedResult.result;
-  }
-
-  const schema = Joi.object(Object.entries(schemaRules).reduce((acc, [key, rule]) => ({
-    ...acc,
-    [key]: rule.split('|').reduce((s, r) => {
-      switch (r) {
-        case 'required': return Joi.any().required();
-        case 'string': return Joi.string();
-        case 'object': return Joi.object();
-        default: return s;
-      }
-    }, Joi.any() as Joi.AnySchema)
-  }), {}));
-
-  const validationResult = schema.validate(data, {
-    abortEarly: false,
-    ...options
-  });
-
   const result: ValidationResult = {
-    isValid: !validationResult.error,
+    isValid: true,
     errors: [],
     suggestions: []
   };
 
-  if (validationResult.error) {
-    result.errors = validationResult.error.details.map(error => ({
-      field: error.path.join('.'),
-      message: error.message,
-      code: error.type,
-      severity: 'error'
-    }));
+  try {
+    // Validate each field
+    Object.entries(schemaRules).forEach(([field, rules]) => {
+      const value = (data as any)?.[field];
 
-    result.suggestions = generateValidationSuggestions(result.errors);
+      // Check required
+      if (rules.required && !value) {
+        result.isValid = false;
+        result.errors.push({
+          field,
+          message: `${field} is required`,
+          code: 'required',
+          severity: 'error'
+        });
+        return;
+      }
+
+      if (value) {
+        // Check type
+        if (rules.type && typeof value !== rules.type) {
+          result.isValid = false;
+          result.errors.push({
+            field,
+            message: `${field} must be a ${rules.type}`,
+            code: 'type',
+            severity: 'error'
+          });
+        }
+
+        // Check pattern
+        if (rules.pattern && typeof value === 'string') {
+          const regex = new RegExp(rules.pattern, rules.flags);
+          if (!regex.test(value)) {
+            result.isValid = false;
+            result.errors.push({
+              field,
+              message: `${field} format is invalid`,
+              code: 'pattern',
+              severity: 'error'
+            });
+          }
+        }
+
+        // Check length
+        if (rules.minLength && typeof value === 'string' && value.length < rules.minLength) {
+          result.isValid = false;
+          result.errors.push({
+            field,
+            message: `${field} must be at least ${rules.minLength} characters`,
+            code: 'minLength',
+            severity: 'error'
+          });
+        }
+
+        if (rules.maxLength && typeof value === 'string' && value.length > rules.maxLength) {
+          result.isValid = false;
+          result.errors.push({
+            field,
+            message: `${field} must not exceed ${rules.maxLength} characters`,
+            code: 'maxLength',
+            severity: 'error'
+          });
+        }
+      }
+    });
+
+    if (!result.isValid) {
+      result.suggestions = generateValidationSuggestions(result.errors);
+    }
+
+    return result;
+  } catch (error) {
+    console.error('Validation error:', error);
+    return {
+      isValid: false,
+      errors: [{
+        field: 'validation',
+        message: 'Validation failed',
+        code: 'internal_error',
+        severity: 'error'
+      }],
+      suggestions: []
+    };
   }
-
-  validationCache.set(cacheKey, { result, timestamp: Date.now() });
-  return result;
 };
 
 /**

@@ -41,7 +41,6 @@ export function useAuth() {
    */
   const handleLogin = useCallback(async (credentials: LoginCredentials): Promise<void> => {
     try {
-      // Validate input credentials
       if (!credentials.email || !credentials.password) {
         throw new Error('Invalid login credentials');
       }

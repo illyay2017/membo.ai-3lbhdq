@@ -32,9 +32,16 @@ const ProtectedRoute: React.FC<{
   children: React.ReactNode;
   LoadingComponent?: React.FC;
 }> = React.memo(({ children, LoadingComponent = () => <div>Loading...</div> }) => {
-  const { isAuthenticated, sessionError, refreshUserSession } = useAuthStore();
+  const { isAuthenticated, user, sessionError, refreshUserSession } = useAuthStore();
   const location = useLocation();
   const analyticsEnabled = !!import.meta.env.VITE_MIXPANEL_TOKEN;
+
+  console.log('ProtectedRoute: Checking auth state:', {
+    isAuthenticated,
+    hasUser: !!user,
+    currentPath: location.pathname,
+    sessionError
+  });
 
   // Handle session refresh errors
   useEffect(() => {
@@ -55,6 +62,7 @@ const ProtectedRoute: React.FC<{
   }, [location.pathname, isAuthenticated, analyticsEnabled]);
 
   if (!isAuthenticated) {
+    console.log('ProtectedRoute: Redirecting to login');
     return <Navigate to={ROUTES.AUTH.LOGIN} state={{ from: location }} replace />;
   }
 

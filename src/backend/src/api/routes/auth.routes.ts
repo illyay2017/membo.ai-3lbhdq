@@ -82,6 +82,14 @@ console.log('Setting up auth routes...');
  */
 router.post('/register', async (req, res) => {
   try {
+    console.log('Registration request received:', {
+      email: req.body.email,
+      firstName: req.body.firstName,
+      lastName: req.body.lastName,
+      hasPassword: !!req.body.password,
+      hasCaptcha: !!req.body.captchaToken
+    });
+
     // Add security metadata
     const metadata = {
       ipAddress: req.ip,
@@ -93,10 +101,17 @@ router.post('/register', async (req, res) => {
       }
     };
 
+    console.log('Request metadata:', metadata);
+
     // Validate registration request
     const validationResult = await validateRegistrationRequest({
       ...req.body,
       metadata
+    });
+
+    console.log('Validation result:', {
+      isValid: validationResult.isValid,
+      errors: validationResult.errors
     });
 
     if (!validationResult.isValid) {
@@ -120,14 +135,21 @@ router.post('/register', async (req, res) => {
     }
 
     // Process registration
-    const authController = new AuthController(req.app.locals.authService, rateLimiter);
+    const authController = new AuthController(authService, rateLimiter);
     const result = await authController.register(req, res);
     return result;
   } catch (error) {
+    console.error('Registration error:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      error
+    });
+
     return res.status(500).json(createErrorDetails(
       ErrorCodes.INTERNAL_SERVER_ERROR,
       'Registration failed. Please try again later.',
-      req.originalUrl
+      req.originalUrl,
+      error instanceof Error ? error.message : undefined
     ));
   }
 });

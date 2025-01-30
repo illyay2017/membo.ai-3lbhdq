@@ -48,13 +48,16 @@ export async function login(credentials: LoginCredentials): Promise<AuthResponse
 
     const data = await response.json();
 
-    // Validate response
-    if (!data?.tokens?.accessToken || !data?.user) {
+    // Validate response - updated to match backend structure
+    if (!data?.token || !data?.user) {
       throw new Error('Invalid authentication response');
     }
 
-    // Setup authentication state
-    await setupAuthState(data.tokens);
+    // Setup authentication state with new structure
+    await setupAuthState({
+      accessToken: data.token,
+      refreshToken: data.refreshToken
+    });
 
     return data;
   } catch (error) {
@@ -71,43 +74,61 @@ export async function login(credentials: LoginCredentials): Promise<AuthResponse
  */
 export async function register(userData: RegisterCredentials): Promise<AuthResponse> {
   try {
-    // Validate registration data
-    if (!userData.email || !userData.password || !userData.firstName || !userData.lastName) {
-      throw new Error('Invalid registration data');
-    }
-
-    // Validate password strength
-    if (!isPasswordStrong(userData.password)) {
-      throw new Error('Password does not meet security requirements');
-    }
-
-    // Attempt registration
+    console.log('Starting registration process...');
+    
     const response = await fetch(API_ENDPOINTS.AUTH.REGISTER, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(userData)
+      body: JSON.stringify(userData),
+      credentials: 'include'
+    });
+
+    console.log('Raw response:', {
+      status: response.status,
+      statusText: response.statusText,
+      headers: Object.fromEntries(response.headers.entries())
+    });
+
+    const data = await response.json();
+    console.log('Response data:', {
+      ...data,
+      user: data.user ? 'Present' : 'Missing',
+      token: data.token ? 'Present' : 'Missing',
+      tokens: data.tokens ? 'Present' : 'Missing'
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      console.error('Registration error:', data);
+      throw new Error(data.detail || data.message || 'Registration failed');
     }
 
-    const data = await response.json();
-
-    // Validate response
-    if (!data?.tokens?.accessToken || !data?.user) {
-      throw new Error('Invalid registration response');
+    // Ensure we have the required data
+    if (!data.user || (!data.token && !data.tokens?.accessToken)) {
+      console.error('Invalid response structure:', data);
+      throw new Error('Invalid registration response format');
     }
 
-    // Setup authentication state
-    await setupAuthState(data.tokens);
+    const authResponse: AuthResponse = {
+      user: data.user,
+      token: data.token || data.tokens?.accessToken,
+      tokens: data.tokens || (data.token ? {
+        accessToken: data.token,
+        refreshToken: data.refreshToken
+      } : undefined)
+    };
 
-    return data;
+    console.log('Processed auth response:', {
+      hasUser: !!authResponse.user,
+      hasToken: !!authResponse.token,
+      hasTokens: !!authResponse.tokens
+    });
+
+    return authResponse;
   } catch (error) {
-    console.error('Registration failed:', error);
-    throw new Error(error instanceof Error ? error.message : 'Registration failed');
+    console.error('Registration error:', error);
+    throw error;
   }
 }
 

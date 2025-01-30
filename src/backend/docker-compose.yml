@@ -19,6 +19,8 @@ services:
       - DATABASE_URL=postgresql://postgres:postgres@host.docker.internal:54322/postgres
       - REDIS_URL=redis://cache:6379
       - DEBUG=membo:*
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRY=${JWT_EXPIRY}
     depends_on:
       cache:
         condition: service_healthy

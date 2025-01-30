@@ -69,4 +69,6 @@ export interface IUser {
     version: number;
     /** Timestamp of last user access */
     lastAccess: Date;
+    /** Timestamp of last password change */
+    lastPasswordChangeAt: Date;
 }

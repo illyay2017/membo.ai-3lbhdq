@@ -61,46 +61,36 @@ const LOGIN_SCHEMA = Joi.object({
 });
 
 // Registration request validation schema with enhanced security
-const REGISTRATION_SCHEMA = Joi.object({
-  email: Joi.string()
-    .required()
-    .email()
-    .custom((value, helpers) => {
-      const result = validateEmail(value, {
-        checkMX: true,
-        checkDisposable: true,
-        checkReputation: true
-      });
-      if (!result.isValid) {
-        return helpers.error(result.errors[0].message);
-      }
-      return value;
-    }),
-  password: Joi.string()
-    .required()
-    .custom((value, helpers) => {
-      const result = validatePassword(value, {
-        minLength: 10,
-        checkCommonPasswords: true,
-        calculateStrength: true
-      });
-      if (!result.isValid || result.metadata?.strength < 70) {
-        return helpers.error('Password does not meet security requirements');
-      }
-      return value;
-    }),
-  firstName: Joi.string()
-    .required()
-    .min(2)
-    .max(50)
-    .pattern(/^[a-zA-Z\s-']+$/),
-  lastName: Joi.string()
-    .required()
-    .min(2)
-    .max(50)
-    .pattern(/^[a-zA-Z\s-']+$/),
-  metadata: metadataSchema
-});
+const REGISTRATION_SCHEMA = {
+  email: {
+    type: 'string',
+    required: true,
+    pattern: '^[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}$',
+    flags: 'i'
+  },
+  password: {
+    type: 'string',
+    required: true,
+    minLength: 8,
+    pattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]'
+  },
+  firstName: {
+    type: 'string',
+    required: true,
+    minLength: 2,
+    maxLength: 50
+  },
+  lastName: {
+    type: 'string',
+    required: true,
+    minLength: 2,
+    maxLength: 50
+  },
+  captchaToken: {
+    type: 'string',
+    required: process.env.NODE_ENV === 'production'
+  }
+};
 
 // Password reset request validation schema
 const PASSWORD_RESET_SCHEMA = Joi.object({

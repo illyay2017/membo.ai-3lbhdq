@@ -4,7 +4,7 @@
  * @version 1.0.0
  */
 
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback, useRef, forwardRef } from 'react';
 import { sanitizeInput } from '../../utils/validation'; // v1.0.0
 import { cn } from '../../lib/utils';
 
@@ -13,7 +13,7 @@ type InputType = 'text' | 'email' | 'password' | 'search' | 'tel' | 'url' | 'num
 type InputMode = 'none' | 'text' | 'tel' | 'url' | 'email' | 'numeric' | 'decimal' | 'search';
 
 export interface InputProps
-  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange' | 'onBlur'> {
+  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange'> {
   id: string;
   name: string;
   label?: string;
@@ -39,31 +39,20 @@ export interface InputProps
 /**
  * Input component with comprehensive validation and accessibility features
  */
-export const Input = React.forwardRef<HTMLInputElement, InputProps>(
+export const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ id, name, label, placeholder, value, error, className, disabled = false, required = false, type = 'text', inputMode, pattern, maxLength, minLength, autoComplete, 'aria-label': ariaLabel, 'aria-describedby': ariaDescribedBy, onChange, onBlur, onFocus, ...props }, ref) => {
     // Unique IDs for accessibility
     const errorId = useRef(`${id}-error`);
     const labelId = useRef(`${id}-label`);
 
-    // Debounced input change handler with validation
+    // Handle change event
     const handleChange = useCallback(
-      (event: React.ChangeEvent<HTMLInputElement> | string) => {
-        const rawValue = typeof event === 'string' ? event : event.target.value;
-        const sanitizedValue = sanitizeInput(rawValue);
-
-        if (pattern && !new RegExp(pattern).test(sanitizedValue)) {
-          return;
-        }
-
-        if (maxLength && sanitizedValue.length > maxLength) {
-          return;
-        }
-
+      (event: React.ChangeEvent<HTMLInputElement>) => {
         if (onChange) {
-          onChange(sanitizedValue);
+          onChange(event.target.value);  // Pass the value instead of the event
         }
       },
-      [onChange, pattern, maxLength]
+      [onChange]
     );
 
     return (
@@ -105,12 +94,12 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             ariaDescribedBy
           )}
           className={cn(
-            'px-3 py-2 rounded-md border border-gray-300 w-full',
+            'px-3 py-2 rounded-md border',
+            error ? 'border-red-500' : 'border-gray-300',
             'transition-colors duration-200 ease-in-out',
             'focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent',
             {
               'bg-gray-100 cursor-not-allowed opacity-75': disabled,
-              'border-red-500 focus:ring-red-500': error,
             }
           )}
           {...props}

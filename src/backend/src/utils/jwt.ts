@@ -13,11 +13,11 @@ config();
 
 // Constants for token configuration
 const JWT_SECRET = process.env.JWT_SECRET!;
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET!;
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET!;
 const JWT_ISSUER = 'membo.ai';
 const JWT_AUDIENCE = 'membo.ai/api';
 const TOKEN_EXPIRY = process.env.JWT_EXPIRY || '30m';
-const REFRESH_TOKEN_EXPIRY = process.env.REFRESH_TOKEN_EXPIRY || '7d';
+const REFRESH_TOKEN_EXPIRY = process.env.JWT_REFRESH_EXPIRY || '7d';
 
 /**
  * Interface defining the structure of JWT token payload with security fields

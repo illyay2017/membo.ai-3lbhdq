@@ -22,12 +22,16 @@ interface IAuthStore {
   error: string | null;
   lastTokenRefresh: number | null;
   sessionExpiresAt: number | null;
+  token: string | null;
+  sessionError: string | null;
 
   // Actions
   loginUser: (credentials: LoginCredentials) => Promise<void>;
   registerUser: (userData: RegisterCredentials) => Promise<void>;
   logoutUser: () => Promise<void>;
   refreshUserSession: () => Promise<void>;
+  setAuth: (auth: { isAuthenticated: boolean; user: UserData; token: string }) => void;
+  setError: (error: string | null) => void;
 }
 
 /**
@@ -40,6 +44,8 @@ const INITIAL_STATE = {
   error: null,
   lastTokenRefresh: null,
   sessionExpiresAt: null,
+  token: null,
+  sessionError: null,
 } as const;
 
 const TOKEN_REFRESH_THRESHOLD = 300; // 5 minutes before expiry in seconds
@@ -61,16 +67,30 @@ export const useAuthStore = create<IAuthStore>()(
       loginUser: async (credentials: LoginCredentials) => {
         try {
           set({ isLoading: true, error: null });
+          console.log('AuthStore: Starting login process');
 
           const response = await login(credentials);
-          const expiresAt = Date.now() + (response.tokens.expiresIn * 1000);
+          console.log('AuthStore: Received login response:', {
+            hasUser: !!response.user,
+            hasToken: !!response.token,
+            expiresIn: response.tokens?.expiresIn
+          });
+
+          // Use a default expiry if not provided
+          const expiresAt = Date.now() + ((response.tokens?.expiresIn ?? 3600) * 1000);
 
           set({
             user: response.user,
             isAuthenticated: true,
+            error: null,
+            isLoading: false,
             lastTokenRefresh: Date.now(),
             sessionExpiresAt: expiresAt,
+            token: response.token,
+            sessionError: null
           });
+
+          console.log('AuthStore: Updated state:', get());
 
           // Initialize token refresh cycle
           const timeUntilRefresh = (expiresAt - Date.now()) - (TOKEN_REFRESH_THRESHOLD * 1000);
@@ -81,13 +101,17 @@ export const useAuthStore = create<IAuthStore>()(
             message: 'Successfully logged in'
           });
         } catch (error) {
-          set({ error: error instanceof Error ? error.message : 'Login failed' });
+          console.error('AuthStore: Login error:', error);
+          set({ 
+            ...INITIAL_STATE,
+            error: error instanceof Error ? error.message : 'Login failed',
+            isLoading: false 
+          });
           useUIStore.getState().showToast({
             type: 'error',
             message: 'Login failed. Please try again.'
           });
-        } finally {
-          set({ isLoading: false });
+          throw error;
         }
       },
 
@@ -100,13 +124,14 @@ export const useAuthStore = create<IAuthStore>()(
           set({ isLoading: true, error: null });
 
           const response = await register(userData);
-          const expiresAt = Date.now() + (response.tokens.expiresIn * 1000);
+          const expiresAt = Date.now() + ((response.tokens?.expiresIn ?? 3600) * 1000);
 
           set({
             user: response.user,
             isAuthenticated: true,
             lastTokenRefresh: Date.now(),
             sessionExpiresAt: expiresAt,
+            token: response.tokens?.accessToken ?? response.token,
           });
 
           // Initialize token refresh cycle
@@ -168,11 +193,12 @@ export const useAuthStore = create<IAuthStore>()(
         while (attempts < MAX_REFRESH_ATTEMPTS) {
           try {
             const response = await refreshToken();
-            const expiresAt = Date.now() + (response.tokens.expiresIn * 1000);
+            const expiresAt = Date.now() + ((response.tokens?.expiresIn ?? 3600) * 1000);
 
             set({
               lastTokenRefresh: Date.now(),
               sessionExpiresAt: expiresAt,
+              token: response.tokens?.accessToken ?? response.token,
             });
 
             // Schedule next refresh
@@ -193,7 +219,15 @@ export const useAuthStore = create<IAuthStore>()(
             await new Promise(resolve => setTimeout(resolve, REFRESH_RETRY_DELAY));
           }
         }
-      }
+      },
+
+      setAuth: (auth) => set(() => ({ 
+        isAuthenticated: auth.isAuthenticated,
+        user: auth.user,
+        token: auth.token
+      })),
+
+      setError: (error) => set({ error }),
     }),
     {
       name: 'auth-store',

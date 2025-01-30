@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
-import ReCAPTCHA from 'react-google-recaptcha';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { useAuth } from '../../hooks/useAuth';
@@ -10,7 +9,7 @@ import { UserRole } from '@shared/types/userRoles';
 import { colors, typography } from '../../constants/theme';
 
 // Near the top of the file, get the site key from env
-const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
+console.log('RECAPTCHA_SITE_KEY:', import.meta.env.VITE_RECAPTCHA_SITE_KEY);
 
 // Registration form data interface
 interface RegisterFormData {
@@ -19,8 +18,8 @@ interface RegisterFormData {
   firstName: string;
   lastName: string;
   role: UserRole;
-  captchaToken: string;
-  deviceFingerprint: string;
+  captchaToken?: string;
+  deviceFingerprint?: string;
 }
 
 // Rate limiting configuration
@@ -30,13 +29,15 @@ const RATE_LIMIT = {
   blockDuration: 900000 // 15 minutes
 };
 
+// Near the top of the file
+const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
+
 /**
  * Enhanced registration page component with security features
  */
 const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
   const { register: registerUser, isLoading } = useAuth();
-  const recaptchaRef = React.useRef<ReCAPTCHA>(null);
 
   // Initialize form with validation
   const {
@@ -44,7 +45,9 @@ const RegisterPage: React.FC = () => {
     handleSubmit,
     formState: { errors },
     setError,
-    clearErrors
+    clearErrors,
+    watch,
+    setValue
   } = useForm<RegisterFormData>({
     mode: 'onBlur',
     defaultValues: {
@@ -66,35 +69,95 @@ const RegisterPage: React.FC = () => {
     generateFingerprint().catch(console.error);
   }, []);
 
+  // Update the reCAPTCHA effect
+  useEffect(() => {
+    const loadRecaptcha = async () => {
+      if (!window.grecaptcha) {
+        const script = document.createElement('script');
+        script.src = `https://www.google.com/recaptcha/api.js?render=${RECAPTCHA_SITE_KEY}`;
+        script.async = true;
+        script.defer = true;
+        
+        const scriptPromise = new Promise((resolve, reject) => {
+          script.onload = resolve;
+          script.onerror = reject;
+        });
+
+        document.head.appendChild(script);
+        await scriptPromise;
+      }
+
+      await window.grecaptcha.ready(() => {
+        console.log('reCAPTCHA is ready');
+      });
+    };
+
+    loadRecaptcha().catch(console.error);
+
+    return () => {
+      // Clean up script if component unmounts
+      const script = document.querySelector(`script[src*="recaptcha"]`);
+      if (script) {
+        document.head.removeChild(script);
+      }
+    };
+  }, []);
+
   // Handle form submission with security checks
   const onSubmit = useCallback(async (data: RegisterFormData) => {
     try {
-      // Validate CAPTCHA
-      if (!data.captchaToken) {
-        setError('captchaToken', { message: 'Please complete the CAPTCHA verification' });
-        return;
+      console.log('Starting registration submission...');
+      
+      let token;
+      try {
+        token = await window.grecaptcha?.execute(RECAPTCHA_SITE_KEY, {
+          action: 'register'
+        });
+        console.log('reCAPTCHA token obtained:', token ? 'Present' : 'Missing');
+      } catch (error) {
+        console.error('reCAPTCHA error:', error);
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('Continuing without reCAPTCHA in development');
+        } else {
+          throw new Error('Failed to verify reCAPTCHA. Please try again.');
+        }
       }
 
-      // Validate registration data
-      validateRegistrationData(data);
-
-      // Attempt registration
-      await registerUser({
+      const registrationData = {
         email: data.email,
         password: data.password,
         firstName: data.firstName,
-        lastName: data.lastName
+        lastName: data.lastName,
+        ...(token && { captchaToken: token })
+      };
+
+      console.log('Submitting registration data...', {
+        ...registrationData,
+        password: '[REDACTED]'
       });
 
-      // Navigate to dashboard on success
-      navigate('/dashboard');
-
-    } catch (error) {
-      console.error('Registration failed:', error);
-      setError('root', { message: 'Registration failed. Please try again.' });
+      const result = await registerUser(registrationData);
       
-      // Reset CAPTCHA on error
-      recaptchaRef.current?.reset();
+      console.log('Registration result:', {
+        success: !!result,
+        hasUser: result?.user ? 'Yes' : 'No',
+        hasToken: result?.token ? 'Yes' : 'No',
+        hasTokens: result?.tokens ? 'Yes' : 'No'
+      });
+
+      if (!result?.user || (!result?.token && !result?.tokens)) {
+        throw new Error('Invalid registration response');
+      }
+
+      // Navigate only if we have valid data
+      navigate('/dashboard');
+    } catch (error) {
+      console.error('Registration error:', error);
+      setError('root', {
+        message: error instanceof Error 
+          ? error.message 
+          : 'Registration failed. Please try again.'
+      });
     }
   }, [registerUser, navigate, setError]);
 
@@ -108,7 +171,7 @@ const RegisterPage: React.FC = () => {
           </h1>
           <p className="mt-2 text-sm text-gray-600">
             Already have an account?{' '}
-            <a href="/login" className="font-medium text-primary hover:text-primary/90" style={{ color: colors.primary }}>
+            <a href="/auth/login" className="font-medium text-primary hover:text-primary/90" style={{ color: colors.primary }}>
               Sign in
             </a>
           </p>
@@ -179,22 +242,6 @@ const RegisterPage: React.FC = () => {
               }
             })}
           />
-
-          {/* CAPTCHA */}
-          <div className="flex justify-center">
-            <ReCAPTCHA
-              ref={recaptchaRef}
-              sitekey={RECAPTCHA_SITE_KEY}
-              onChange={(token) => {
-                if (token) {
-                  clearErrors('captchaToken');
-                }
-              }}
-            />
-          </div>
-          {errors.captchaToken && (
-            <p className="text-sm text-red-500 mt-1">{errors.captchaToken.message}</p>
-          )}
 
           {/* Submit Button */}
           <Button
