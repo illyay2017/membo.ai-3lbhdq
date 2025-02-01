@@ -1,3 +1,5 @@
+// This file can be deleted as it's replaced by SupabaseService
+
 /**
  * @fileoverview Supabase client configuration with enhanced security and monitoring
  * @version 1.0.0
@@ -100,10 +102,12 @@ export function createSupabaseClient(useServiceRole = false) {
 }
 
 // Create default instance for general use
-const supabase = createSupabaseClient();
-Object.freeze(supabase);
+export const supabaseClient = createSupabaseClient();
+export const supabaseAdmin = createSupabaseClient(true);
+Object.freeze(supabaseClient);
+Object.freeze(supabaseAdmin);
 
-export default supabase;
+export default supabaseClient;
 
 // Helper for auth operations needing service role
 export function getServiceClient() {

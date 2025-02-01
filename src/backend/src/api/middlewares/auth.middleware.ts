@@ -11,6 +11,8 @@ import { UserRole } from '../../constants/userRoles';
 import { ErrorCodes, createErrorDetails } from '../../constants/errorCodes';
 import { IUser } from '../../interfaces/IUser';
 import { auditLogger } from '../../services/AuditLoggerService';
+import { getServices } from '../../config/services';
+import { JWTError } from '../../utils/jwt';
 
 declare module 'express' {
   interface Request {
@@ -19,6 +21,8 @@ declare module 'express' {
     };
   }
 }
+
+const { redisService, tokenService } = getServices();
 
 // Initialize Redis client for token blacklist and role cache
 const redisClient = createClient({
@@ -65,86 +69,29 @@ const extractBearerToken = (authHeader: string | undefined): string | null => {
  * Authentication middleware that verifies JWT tokens and enforces security policies
  */
 export const authenticate = async (
-  req: AuthenticatedRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
-    // Add detailed logging
-    console.log('Auth middleware headers:', {
-      authorization: req.headers.authorization,
-      path: req.path,
-      method: req.method
-    });
-
-    const token = extractBearerToken(req.headers.authorization);
-    
-    if (!token) {
-      console.log('No token found in request');
-      const error = createErrorDetails(
-        ErrorCodes.UNAUTHORIZED,
-        'No authentication token provided',
-        req.originalUrl
-      );
-      res.status(error.status).json(error);
-      return;
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith('Bearer ')) {
+      throw new JWTError('No token provided', 'TOKEN_MISSING');
     }
 
-    // Log token for debugging
-    console.log('Token found:', token.substring(0, 10) + '...');
-    
-    // Verify token and extract payload
-    const decoded = await verifyToken(token);
-
-    // Check token blacklist
-    if (await isTokenBlacklisted(decoded.jti)) {
-      const error = createErrorDetails(
-        ErrorCodes.UNAUTHORIZED,
-        'Token has been revoked',
-        req.originalUrl
-      );
-      res.status(error.status).json(error);
-      return;
+    const token = authHeader.split(' ')[1];
+    const isBlacklisted = await tokenService.isTokenBlacklisted(token);
+    if (isBlacklisted) {
+      throw new JWTError('Token is blacklisted', 'TOKEN_BLACKLISTED');
     }
 
-    // Attach user and security context to request
-    req.user = {
-      id: decoded.userId,
-      email: decoded.email,
-      role: decoded.role as UserRole,
-      lastAccess: new Date()
-    };
+    const decoded = await tokenService.verifyAccessToken(token);
 
-    req.securityContext = {
-      tokenId: decoded.jti,
-      issueTime: new Date(decoded.iat * 1000),
-      clientIp: req.ip
-    };
-
-    // Log successful authentication
-    auditLogger.info('Authentication successful', {
-      userId: decoded.userId,
-      tokenId: decoded.jti,
-      clientIp: req.ip,
-      userAgent: req.headers['user-agent']
-    });
-
+    // Attach user context to request
+    req.user = decoded;
     next();
   } catch (error) {
-    const errorDetail = createErrorDetails(
-      ErrorCodes.UNAUTHORIZED,
-      'Invalid or expired authentication token',
-      req.originalUrl
-    );
-    
-    // Log authentication failure
-    auditLogger.warn('Authentication failed', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      clientIp: req.ip,
-      userAgent: req.headers['user-agent']
-    });
-
-    res.status(errorDetail.status).json(errorDetail);
+    next(error);
   }
 };
 

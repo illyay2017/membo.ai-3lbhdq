@@ -22,7 +22,7 @@ const REFRESH_TOKEN_EXPIRY = process.env.JWT_REFRESH_EXPIRY || '7d';
 /**
  * Interface defining the structure of JWT token payload with security fields
  */
-interface TokenPayload {
+export interface TokenPayload {
     userId: string;
     email: string;
     role: string;
@@ -36,7 +36,7 @@ interface TokenPayload {
 /**
  * Custom error class for JWT-related errors
  */
-class JWTError extends Error {
+export class JWTError extends Error {
     constructor(message: string, public code: string) {
         super(message);
         this.name = 'JWTError';
@@ -72,31 +72,22 @@ const sanitizeTokenData = (data: Partial<IUser>): Partial<IUser> => {
  */
 export const generateToken = async (user: IUser): Promise<string> => {
     try {
-        if (!user.id || !user.email || !user.role) {
-            throw new JWTError('Invalid user data for token generation', 'INVALID_USER_DATA');
-        }
-
-        const sanitizedUser = sanitizeTokenData(user);
-        const tokenId = generateTokenId();
-
-        const payload: Omit<TokenPayload, 'iat' | 'exp'> = {
-            userId: sanitizedUser.id!,
-            email: sanitizedUser.email!,
-            role: sanitizedUser.role!,
+        const tokenId = crypto.randomUUID();
+        const payload = {
+            userId: user.id,
+            email: user.email,
+            role: user.role,
             jti: tokenId,
             iss: JWT_ISSUER,
             aud: JWT_AUDIENCE
         };
 
-        const token = jwt.sign(payload, JWT_SECRET, {
+        return jwt.sign(payload, JWT_SECRET, {
             algorithm: 'HS512',
             expiresIn: TOKEN_EXPIRY,
         });
-
-        return token;
     } catch (error) {
-        const message = error instanceof Error ? error.message : 'Token generation failed';
-        throw new JWTError(message, 'TOKEN_GENERATION_ERROR');
+        throw new JWTError('Token generation failed', 'TOKEN_GENERATION_ERROR');
     }
 };
 
@@ -108,32 +99,16 @@ export const generateToken = async (user: IUser): Promise<string> => {
  */
 export const verifyToken = async (token: string): Promise<TokenPayload> => {
     try {
-        if (!token) {
-            throw new JWTError('Token is required', 'TOKEN_REQUIRED');
-        }
-
-        const decoded = jwt.verify(token, JWT_SECRET, {
+        return jwt.verify(token, JWT_SECRET, {
             algorithms: ['HS512'],
             issuer: JWT_ISSUER,
-            audience: JWT_AUDIENCE,
-            complete: true
-        }) as jwt.JwtPayload;
-
-        // Additional security validations
-        if (!decoded.payload.jti || !decoded.payload.userId) {
-            throw new JWTError('Invalid token payload', 'INVALID_PAYLOAD');
-        }
-
-        return decoded.payload as TokenPayload;
+            audience: JWT_AUDIENCE
+        }) as TokenPayload;
     } catch (error) {
         if (error instanceof jwt.TokenExpiredError) {
             throw new JWTError('Token has expired', 'TOKEN_EXPIRED');
         }
-        if (error instanceof jwt.JsonWebTokenError) {
-            throw new JWTError('Invalid token', 'INVALID_TOKEN');
-        }
-        const message = error instanceof Error ? error.message : 'Token verification failed';
-        throw new JWTError(message, 'TOKEN_VERIFICATION_ERROR');
+        throw new JWTError('Token verification failed', 'TOKEN_VERIFICATION_ERROR');
     }
 };
 

@@ -61,36 +61,57 @@ const LOGIN_SCHEMA = Joi.object({
 });
 
 // Registration request validation schema with enhanced security
-const REGISTRATION_SCHEMA = {
-  email: {
-    type: 'string',
-    required: true,
-    pattern: '^[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}$',
-    flags: 'i'
-  },
-  password: {
-    type: 'string',
-    required: true,
-    minLength: 8,
-    pattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]'
-  },
-  firstName: {
-    type: 'string',
-    required: true,
-    minLength: 2,
-    maxLength: 50
-  },
-  lastName: {
-    type: 'string',
-    required: true,
-    minLength: 2,
-    maxLength: 50
-  },
-  captchaToken: {
-    type: 'string',
-    required: process.env.NODE_ENV === 'production'
-  }
-};
+const REGISTRATION_SCHEMA = Joi.object({
+  email: Joi.string()
+    .required()
+    .email()
+    .custom(async (value, helpers) => {
+      const result = await validateEmail(value, {
+        checkMX: true,
+        checkDisposable: true,
+        checkReputation: true
+      });
+      if (!result.isValid) {
+        return helpers.error('any.invalid', { 
+          message: result.errors?.[0]?.message || 'Invalid email'
+        });
+      }
+      return value;
+    }),
+  password: Joi.string()
+    .required()
+    .min(8)
+    .custom((value, helpers) => {
+      const result = validatePassword(value, {
+        minLength: 8,
+        checkCommonPasswords: true,
+        calculateStrength: true
+      });
+      if (!result.isValid || result.metadata?.strength < 70) {
+        return helpers.error('any.invalid', {
+          message: 'Password must be at least 8 characters long and include uppercase, lowercase, numbers, and special characters'
+        });
+      }
+      return value;
+    }),
+  firstName: Joi.string()
+    .required()
+    .min(2)
+    .max(50)
+    .pattern(/^[a-zA-Z\s-']+$/, { name: 'valid name characters' }),
+  lastName: Joi.string()
+    .required()
+    .min(2)
+    .max(50)
+    .pattern(/^[a-zA-Z\s-']+$/, { name: 'valid name characters' }),
+  captchaToken: Joi.string()
+    .when('$isProduction', {
+      is: true,
+      then: Joi.required(),
+      otherwise: Joi.optional()
+    }),
+  metadata: metadataSchema
+});
 
 // Password reset request validation schema
 const PASSWORD_RESET_SCHEMA = Joi.object({

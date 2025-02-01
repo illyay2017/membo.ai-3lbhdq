@@ -6,7 +6,6 @@
 
 import { Request, Response } from 'express'; // ^4.18.2
 import helmet from 'helmet'; // ^7.0.0
-import { RateLimiterRedis } from 'rate-limiter-flexible'; // ^3.0.0
 import winston from 'winston'; // ^3.8.2
 import { AuthService } from '../../services/AuthService';
 import { validateLoginRequest, validateRegistrationRequest } from '../validators/auth.validator';
@@ -30,16 +29,8 @@ const logger = winston.createLogger({
  */
 export class AuthController {
   constructor(
-    private readonly authService: AuthService,
-    private readonly rateLimiter: RateLimiterRedis
-  ) {
-    if (!authService) {
-      throw new Error('AuthService is required');
-    }
-    if (!rateLimiter) {
-      throw new Error('RateLimiter is required');
-    }
-  }
+    private readonly authService: AuthService
+  ) {}
 
   /**
    * Handles user registration with enhanced security and validation
@@ -48,14 +39,18 @@ export class AuthController {
     try {
       console.log('AuthController.register started');
 
-      // Add security metadata
-      const metadata = {
-        ipAddress: req.ip,
-        userAgent: req.headers['user-agent'],
-        deviceId: req.headers['x-device-id'],
-        geoLocation: {
-          country: req.headers['cf-ipcountry'],
-          region: req.headers['cf-region']
+      // Add security metadata to registration data
+      const registrationData = {
+        ...req.body,
+        securityMetadata: {
+          ipAddress: req.ip,
+          userAgent: req.headers['user-agent'],
+          deviceId: req.headers['x-device-id'],
+          geoLocation: {
+            country: req.headers['cf-ipcountry'],
+            region: req.headers['cf-region']
+          },
+          timestamp: new Date().toISOString()
         }
       };
 
@@ -66,8 +61,8 @@ export class AuthController {
       });
 
       try {
-        // Register user
-        const { user, token, refreshToken } = await this.authService.register(req.body);
+        // Register user with security metadata
+        const { user, token, refreshToken } = await this.authService.register(registrationData);
         
         console.log('User registered successfully:', {
           userId: user.id,
@@ -120,32 +115,16 @@ export class AuthController {
    */
   public login = async (req: Request, res: Response): Promise<Response> => {
     try {
-      console.log('Login attempt for:', { email: req.body.email, hasPassword: !!req.body.password });
+      const { email, password } = req.body;
+      const result = await this.authService.login(email, password);
       
-      const result = await this.authService.login(
-        req.body.email,
-        req.body.password
-      );
-
-      // Set secure cookie for refresh token
-      res.cookie('refreshToken', result.refreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
-        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-      });
-
       return res.status(200).json({
-        user: result.user,
-        token: result.token,
-        refreshToken: result.refreshToken
+        status: 'success',
+        data: result
       });
-
     } catch (error) {
-      console.error('Login error:', error);
-      return res.status(401).json({
-        message: error instanceof Error ? error.message : 'Authentication failed'
-      });
+      // Handle HTTP-specific error responses
+      return this.handleAuthError(error, res);
     }
   };
 
@@ -190,38 +169,47 @@ export class AuthController {
    */
   public logout = async (req: Request, res: Response): Promise<Response> => {
     try {
-      const token = req.headers.authorization?.split(' ')[1];
-      const refreshToken = req.cookies.refreshToken;
+      const authToken = req.headers.authorization?.split(' ')[1];
+      const refreshToken = req.body.refreshToken || req.cookies?.refreshToken;
 
-      if (!token || !refreshToken) {
+      if (!authToken) {
         return res.status(401).json(createErrorDetails(
           ErrorCodes.UNAUTHORIZED,
-          'Authentication tokens required',
+          'No authentication token provided',
           req.originalUrl
         ));
       }
 
-      await this.authService.logout(token, refreshToken);
+      if (!refreshToken) {
+        return res.status(401).json(createErrorDetails(
+          ErrorCodes.UNAUTHORIZED,
+          'Refresh token is required',
+          req.originalUrl
+        ));
+      }
 
-      // Clear secure cookies
+      await this.authService.logout(authToken, refreshToken);
+
       res.clearCookie('refreshToken', {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'strict'
       });
 
-      logger.info('User logged out successfully');
-
       return res.status(200).json({
+        status: 'success',
         message: 'Logged out successfully'
       });
     } catch (error) {
-      logger.error('Logout failed', { error, path: req.path });
-      return res.status(500).json(createErrorDetails(
-        ErrorCodes.INTERNAL_SERVER_ERROR,
-        'Logout failed. Please try again later.',
-        req.originalUrl
-      ));
+      return this.handleAuthError(error, res);
     }
   };
+
+  private handleAuthError(error: any, res: Response): Response {
+    // Implement the logic to handle different types of authentication errors
+    // This is a placeholder and should be replaced with the actual implementation
+    return res.status(401).json({
+      message: error instanceof Error ? error.message : 'Authentication failed'
+    });
+  }
 }

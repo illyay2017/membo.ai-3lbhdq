@@ -1,37 +1,18 @@
-import Redis, { RedisOptions, Cluster } from 'ioredis'; // v5.3.0
-import pino from 'pino'; // v8.16.0
-import { EventEmitter } from 'events';
+import Redis, { RedisOptions } from 'ioredis';
 import winston from 'winston';
+import { EventEmitter } from 'events';
 
-// Global configuration object based on best practices and requirements
 const REDIS_CONFIG = {
-  cluster: {
-    enabled: process.env.NODE_ENV !== 'development',
-    retryDelayMs: 5000,
-    maxRedirections: 16,
-    scaleReads: 'slave' as const,
-    clusterRetryStrategy: (times: number) => Math.min(times * 50, 2000),
-  },
   defaults: {
-    ttlSeconds: 900, // 15 minutes default TTL
-    maxConnections: 10,
-    connectTimeout: 10000,
+    url: process.env.REDIS_URL || 'redis://cache:6379',
+    retryStrategy: (times: number) => Math.min(times * 50, 2000),
     maxRetriesPerRequest: 3,
     enableReadyCheck: true,
-    autoResendUnfulfilledCommands: true,
-    retryStrategy: (times: number) => Math.min(times * 50, 2000)
+    showFriendlyErrorStack: process.env.NODE_ENV !== 'production',
   },
   monitoring: {
     healthCheckIntervalMs: 5000,
-    memoryAlertThreshold: 0.8,
-    slowLogThresholdMs: 100,
-  },
-  security: {
-    enableTLS: true,
-    rejectUnauthorized: true,
-    passwordRotationDays: 30,
-    maxClientsPerNode: 1000,
-  },
+  }
 };
 
 interface SetOptions {
@@ -51,6 +32,7 @@ interface HealthStatus {
 }
 
 export class RedisManager {
+  private static instance: RedisManager;
   private client: Redis;
   private readonly logger: winston.Logger;
   private healthCheckInterval: NodeJS.Timer;
@@ -58,7 +40,7 @@ export class RedisManager {
   private eventBus: EventEmitter;
   private healthStatus: HealthStatus;
 
-  constructor() {
+  private constructor() {
     this.logger = winston.createLogger({
       level: 'info',
       format: winston.format.json(),
@@ -67,14 +49,36 @@ export class RedisManager {
 
     this.retryCounters = new Map();
     this.eventBus = new EventEmitter();
-
-    this.client = new Redis({
-      host: 'cache',  // Docker service name
+    
+    this.logger.info('Creating Redis client with config:', {
+      host: 'cache',
       port: 6379,
+      retryStrategy: REDIS_CONFIG.defaults.retryStrategy,
       maxRetriesPerRequest: REDIS_CONFIG.defaults.maxRetriesPerRequest,
-      retryStrategy: REDIS_CONFIG.defaults.retryStrategy
+      enableReadyCheck: REDIS_CONFIG.defaults.enableReadyCheck
     });
 
+    // Use proper connection options as per ioredis docs
+    this.client = new Redis({
+      host: 'cache', // Docker service name
+      port: 6379,
+      retryStrategy: REDIS_CONFIG.defaults.retryStrategy,
+      maxRetriesPerRequest: REDIS_CONFIG.defaults.maxRetriesPerRequest,
+      enableReadyCheck: REDIS_CONFIG.defaults.enableReadyCheck,
+      showFriendlyErrorStack: process.env.NODE_ENV !== 'production'
+    });
+
+    this.setupEventListeners();
+  }
+
+  public static getInstance(): RedisManager {
+    if (!RedisManager.instance) {
+      RedisManager.instance = new RedisManager();
+    }
+    return RedisManager.instance;
+  }
+
+  private setupEventListeners(): void {
     this.client.on('error', (err) => {
       this.logger.error('Redis connection error:', err);
       this.eventBus.emit('error', err);
@@ -266,13 +270,7 @@ export class RedisManager {
 }
 
 // Export singleton instance
-export const redisManager = new RedisManager();
+export const redisManager = RedisManager.getInstance();
 
-// Export initialization function
-export async function initializeRedis(): Promise<void> {
-  try {
-    await redisManager['initialize']();
-  } catch (error) {
-    throw new Error(`Redis initialization failed: ${error.message}`);
-  }
-}
+// Export the Redis client for use throughout the application
+export const redisClient = redisManager.getClient();

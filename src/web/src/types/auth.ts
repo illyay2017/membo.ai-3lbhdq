@@ -21,17 +21,11 @@ export interface LoginCredentials {
  * Interface defining the required data for new user registration.
  * Used as the payload for registration requests to create new user accounts.
  */
-export interface RegisterCredentials {
-    /** User's email address for account creation */
-    email: string;
-    /** User's password for account security */
-    password: string;
+export interface RegisterCredentials extends LoginCredentials {
     /** User's first name for profile information */
     firstName: string;
     /** User's last name for profile information */
     lastName: string;
-    /** User's captcha token for registration */
-    captchaToken?: string;
 }
 
 /**
@@ -74,7 +68,9 @@ export interface AuthResponse {
     /** Authenticated user's profile data */
     user: UserData;
     /** Authentication tokens for API access */
-    tokens: AuthTokens;
-    /** Token for backward compatibility */
-    token: string;
+    tokens: {
+        accessToken: string;
+        refreshToken: string;
+        expiresIn: number;
+    };
 }

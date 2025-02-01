@@ -224,6 +224,153 @@ npm run start:prod
 - `/health/ready`: Readiness probe
 - `/health/startup`: Startup probe
 
+# Authentication & Session Management
+
+## Architecture Overview
+
+Our application implements a hybrid authentication system combining Supabase authentication with custom token management:
+
+```mermaid
+graph TD
+    A[Client] --> B[API Layer]
+    B --> C[AuthService]
+    C --> D[Supabase Auth]
+    C --> E[TokenService]
+    E --> F[Redis Token Store]
+    
+    style E fill:#f9f,stroke:#333
+    style F fill:#bbf,stroke:#333
+```
+
+## Token System
+
+### Access Token
+- Short-lived JWT (30 minutes)
+- Used for API request authentication
+- Contains: `userId`, `email`, `role`, `jti`
+- Verified on each request
+- Blacklistable for immediate revocation
+
+### Refresh Token
+- Long-lived JWT (7 days)
+- Stored in Redis
+- Used only to obtain new access tokens
+- Implements secure rotation
+- One-time use (invalidated after refresh)
+
+## Implementation Details
+
+### Token Generation
+
+```typescript
+// Generated after successful Supabase authentication
+const tokens = await tokenService.generateTokenPair(user);
+// Returns: { accessToken, refreshToken }
+```
+
+### Token Verification Flow
+1. Client includes access token in Authorization header
+2. Middleware verifies token signature and expiration
+3. Checks Redis blacklist
+4. Attaches user context to request
+
+### Token Refresh Flow
+1. Client detects token expiration (5 minutes before)
+2. Uses refresh token to request new token pair
+3. Old refresh token is invalidated
+4. New token pair is issued
+
+### Security Features
+- Token rotation on refresh
+- Redis-based token blacklisting
+- Rate limiting by user role
+- Automatic session cleanup
+- Secure token storage
+- JWT payload sanitization
+
+## Configuration
+
+```env
+JWT_SECRET=your-secret-key
+JWT_REFRESH_SECRET=your-refresh-secret
+TOKEN_EXPIRY=30m
+REFRESH_TOKEN_EXPIRY=7d
+REDIS_URL=redis://localhost:6379
+```
+
+## Rate Limiting
+
+```typescript
+const RATE_LIMITS = {
+  FREE_USER: 100,
+  PRO_USER: 1000,
+  POWER_USER: 2000,
+  ENTERPRISE_ADMIN: 5000
+}
+```
+
+## Usage Examples
+
+### Login Flow
+```typescript
+// 1. Authenticate with Supabase
+const { data: auth } = await supabase.auth.signInWithPassword({
+  email,
+  password
+});
+
+// 2. Generate token pair
+const tokens = await tokenService.generateTokenPair(auth.user);
+
+// 3. Return to client
+return { user: auth.user, ...tokens };
+```
+
+### Token Refresh
+```typescript
+// Client-side refresh before expiration
+const timeUntilExpiry = sessionExpiresAt - Date.now();
+if (timeUntilExpiry <= TOKEN_REFRESH_THRESHOLD) {
+  const newTokens = await refreshToken();
+  // Update stored tokens
+}
+```
+
+### Logout
+```typescript
+// Invalidate both tokens
+await tokenService.invalidateTokens(accessToken, refreshToken);
+// Sign out from Supabase
+await supabase.auth.signOut();
+```
+
+## Security Considerations
+
+1. **Token Storage**
+   - Access tokens: Never stored server-side
+   - Refresh tokens: Redis with TTL
+   - Client: HttpOnly cookies or secure storage
+
+2. **Token Revocation**
+   - Immediate via blacklisting
+   - Automatic cleanup of expired tokens
+   - Cascade invalidation on security events
+
+3. **Session Management**
+   - Automatic expiration
+   - Rate limiting
+   - Device tracking
+   - Concurrent session control
+
+## Testing
+
+See `tests/integration/auth.test.ts` for comprehensive test cases covering:
+- Token generation
+- Token rotation
+- Refresh token reuse prevention
+- Session invalidation
+- Rate limiting
+
 ## License
 
 Copyright © 2024 membo.ai. All rights reserved.

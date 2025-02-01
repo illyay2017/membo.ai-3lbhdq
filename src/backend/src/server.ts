@@ -9,6 +9,15 @@ import cluster from 'node:cluster';
 import { cpus } from 'node:os';
 import app, { server, wsManager } from './app.js';
 import { logger } from './config/logger.js';
+import { getServices } from './config/services';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+console.log('Environment variables loaded:', {
+  redisUrl: process.env.REDIS_URL,
+  nodeEnv: process.env.NODE_ENV
+});
 
 // Environment variables with defaults
 const PORT = process.env.PORT || 4000;
@@ -43,6 +52,11 @@ const gracefulShutdown = async (server: http.Server): Promise<void> => {
     logger.info('Initiating graceful shutdown...');
     
     try {
+        const services = getServices();
+        
+        // Stop Redis cleanup tasks
+        services.redisService.stopCleanupTasks();
+        
         // Cleanup WebSocket connections
         await wsManager.cleanup();
         
@@ -54,7 +68,6 @@ const gracefulShutdown = async (server: http.Server): Promise<void> => {
             });
         });
 
-        // Allow existing requests to complete
         await new Promise(resolve => setTimeout(resolve, SHUTDOWN_TIMEOUT));
         logger.info('Graceful shutdown completed');
         process.exit(0);

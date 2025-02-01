@@ -26,11 +26,14 @@ import { MetricsCollector } from './core/metrics/MetricsCollector';
 import { StudySessionManager } from './core/study/studySessionManager';
 import { VoiceService } from './services/VoiceService';
 import bodyParser from 'body-parser';
-import { RedisClient } from './core/redis/RedisClient';
-import { DatabaseManager } from './core/database/DatabaseManager';
+import { getServices } from './config/services';
 
 // Initialize Express application
 const app: Application = express();
+
+// Initialize services early
+const services = getServices();
+services.redisService.startCleanupTasks();
 
 /**
  * Configures Express middleware chain with security and performance features
@@ -191,7 +194,7 @@ const wsManager = new WebSocketManager(
     wsLogger
 );
 
-// Handle uncaught errors
+// Handle cleanup during shutdown
 const handleUncaughtErrors = async (error: Error): Promise<void> => {
   try {
     logger.error('Uncaught error:', {
@@ -199,10 +202,15 @@ const handleUncaughtErrors = async (error: Error): Promise<void> => {
       stack: error.stack
     });
 
+    const services = getServices();
+    // Stop Redis cleanup tasks
+    services.redisService.stopCleanupTasks();
+    // Cleanup Supabase
+    await services.supabaseService.cleanup();
+
     // Attempt graceful shutdown
     await wsManager.cleanup();
     
-    // Only try to close server if it's running
     if (server.listening) {
       await new Promise<void>((resolve) => {
         server.close(() => resolve());

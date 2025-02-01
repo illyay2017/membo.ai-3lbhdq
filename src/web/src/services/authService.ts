@@ -8,6 +8,7 @@
 import { getAccessToken, setAuthTokens, clearAuthTokens } from '../lib/storage';
 import { LoginCredentials, RegisterCredentials, AuthResponse, AuthTokens } from '../types/auth';
 import { API_ENDPOINTS } from '../constants/api';
+import { setAuthToken } from '@/lib/api';
 
 // Token refresh configuration
 const TOKEN_REFRESH_THRESHOLD = 300000; // 5 minutes before expiry
@@ -22,30 +23,46 @@ let tokenRefreshInterval: ReturnType<typeof setInterval> | null = null;
  * @throws Error if authentication fails
  */
 export async function login(credentials: LoginCredentials): Promise<AuthResponse> {
+  console.log('Attempting login with:', { ...credentials, password: '[REDACTED]' });
+  
   const response = await fetch(API_ENDPOINTS.AUTH.LOGIN, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(credentials)
+    headers: { 
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
+    },
+    body: JSON.stringify(credentials),
+    credentials: 'include'
   });
 
   if (!response.ok) {
-    throw new Error('Authentication failed');
+    const errorData = await response.json().catch(() => null);
+    console.error('Login failed:', errorData || response.statusText);
+    throw new Error(errorData?.detail || 'Authentication failed');
   }
 
   const data = await response.json();
   
-  // Transform response to expected format
+  console.log('Login response:', {
+    hasUser: !!data.data?.user,
+    hasToken: !!data.data?.token,
+    hasRefreshToken: !!data.data?.refreshToken,
+    responseShape: Object.keys(data.data || {})
+  });
+  
+  // Transform response to match backend shape
   const authResponse: AuthResponse = {
-    user: data.user,
+    user: data.data.user,
     tokens: {
-      accessToken: data.token,
-      refreshToken: data.refreshToken,
+      accessToken: data.data.token,
+      refreshToken: data.data.refreshToken,
       expiresIn: 3600
     }
   };
 
-  // Store tokens
-  setAuthTokens(authResponse.tokens);
+  // Store tokens securely
+  localStorage.setItem('refreshToken', authResponse.tokens.refreshToken);
+  await setupAuthState(authResponse.tokens);
 
   return authResponse;
 }
@@ -96,18 +113,20 @@ export async function register(userData: RegisterCredentials): Promise<AuthRespo
 
     const authResponse: AuthResponse = {
       user: data.user,
-      token: data.token || data.tokens?.accessToken,
-      tokens: data.tokens || (data.token ? {
-        accessToken: data.token,
-        refreshToken: data.refreshToken
-      } : undefined)
+      tokens: {
+        accessToken: data.token || data.tokens?.accessToken,
+        refreshToken: data.refreshToken || data.tokens?.refreshToken,
+        expiresIn: data.expiresIn || data.tokens?.expiresIn || 3600
+      }
     };
 
     console.log('Processed auth response:', {
       hasUser: !!authResponse.user,
-      hasToken: !!authResponse.token,
       hasTokens: !!authResponse.tokens
     });
+
+    // Setup authentication state
+    await setupAuthState(authResponse.tokens);
 
     return authResponse;
   } catch (error) {
@@ -122,13 +141,25 @@ export async function register(userData: RegisterCredentials): Promise<AuthRespo
  */
 export async function logout(): Promise<void> {
   try {
-    await fetch(API_ENDPOINTS.AUTH.LOGOUT, {
+    const accessToken = getAccessToken();
+    const refreshToken = localStorage.getItem('refreshToken');
+    
+    // Send logout request to backend
+    const response = await fetch(API_ENDPOINTS.AUTH.LOGOUT, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${getAccessToken()}`
-      }
+        'Authorization': `Bearer ${accessToken || ''}`
+      },
+      body: JSON.stringify({ refreshToken }),
+      credentials: 'include'
     });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => null);
+      console.error('Logout failed:', errorData || response.statusText);
+      throw new Error(errorData?.message || 'Logout failed');
+    }
   } finally {
     clearAuthTokens();
   }
@@ -188,7 +219,6 @@ async function setupAuthState(tokens: AuthTokens): Promise<void> {
  */
 function cleanupAuthState(): void {
   clearAuthTokens();
-  clearAuthToken();
   stopTokenRefresh();
 }
 
