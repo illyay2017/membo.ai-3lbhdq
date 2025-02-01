@@ -10,6 +10,8 @@ import { devtools } from 'zustand/middleware'; // v4.4.1
 import { login, register, logout, refreshToken } from '../services/authService';
 import { LoginCredentials, RegisterCredentials, UserData } from '../types/auth';
 import { useUIStore } from './uiStore';
+import { setAuthTokens, getAuthTokens, clearAuthTokens } from '../lib/storage';
+import { api } from '../lib/api';
 
 /**
  * Interface defining the authentication store state and actions
@@ -22,12 +24,17 @@ interface IAuthStore {
   error: string | null;
   lastTokenRefresh: number | null;
   sessionExpiresAt: number | null;
+  token: string | null;
+  sessionError: string | null;
 
   // Actions
   loginUser: (credentials: LoginCredentials) => Promise<void>;
   registerUser: (userData: RegisterCredentials) => Promise<void>;
   logoutUser: () => Promise<void>;
   refreshUserSession: () => Promise<void>;
+  setAuth: (auth: { isAuthenticated: boolean; user: UserData; token: string }) => void;
+  setError: (error: string | null) => void;
+  initializeAuth: () => Promise<void>;
 }
 
 /**
@@ -40,6 +47,8 @@ const INITIAL_STATE = {
   error: null,
   lastTokenRefresh: null,
   sessionExpiresAt: null,
+  token: null,
+  sessionError: null,
 } as const;
 
 const TOKEN_REFRESH_THRESHOLD = 300; // 5 minutes before expiry in seconds
@@ -61,33 +70,31 @@ export const useAuthStore = create<IAuthStore>()(
       loginUser: async (credentials: LoginCredentials) => {
         try {
           set({ isLoading: true, error: null });
-
+          
           const response = await login(credentials);
-          const expiresAt = Date.now() + (response.tokens.expiresIn * 1000);
+          
+          if (!response.user || !response.tokens?.accessToken) {
+            throw new Error('Invalid login response');
+          }
 
           set({
             user: response.user,
             isAuthenticated: true,
-            lastTokenRefresh: Date.now(),
-            sessionExpiresAt: expiresAt,
+            token: response.tokens.accessToken,
+            sessionExpiresAt: Date.now() + (response.tokens.expiresIn * 1000),
+            isLoading: false
           });
-
-          // Initialize token refresh cycle
-          const timeUntilRefresh = (expiresAt - Date.now()) - (TOKEN_REFRESH_THRESHOLD * 1000);
-          setTimeout(() => get().refreshUserSession(), timeUntilRefresh);
 
           useUIStore.getState().showToast({
             type: 'success',
             message: 'Successfully logged in'
           });
         } catch (error) {
-          set({ error: error instanceof Error ? error.message : 'Login failed' });
-          useUIStore.getState().showToast({
-            type: 'error',
-            message: 'Login failed. Please try again.'
+          set({ 
+            error: error instanceof Error ? error.message : 'Login failed',
+            isLoading: false 
           });
-        } finally {
-          set({ isLoading: false });
+          throw error;
         }
       },
 
@@ -100,13 +107,14 @@ export const useAuthStore = create<IAuthStore>()(
           set({ isLoading: true, error: null });
 
           const response = await register(userData);
-          const expiresAt = Date.now() + (response.tokens.expiresIn * 1000);
+          const expiresAt = Date.now() + ((response.tokens?.expiresIn ?? 3600) * 1000);
 
           set({
             user: response.user,
             isAuthenticated: true,
             lastTokenRefresh: Date.now(),
             sessionExpiresAt: expiresAt,
+            token: response.tokens?.accessToken ?? response.token,
           });
 
           // Initialize token refresh cycle
@@ -134,8 +142,15 @@ export const useAuthStore = create<IAuthStore>()(
       logoutUser: async () => {
         try {
           set({ isLoading: true });
-          await logout();
           
+          // Attempt server logout but don't throw if it fails
+          try {
+            await logout();
+          } catch (error) {
+            console.error('Server logout failed:', error);
+          }
+          
+          // Always clean up local state
           set({
             ...INITIAL_STATE,
             isLoading: false
@@ -147,9 +162,13 @@ export const useAuthStore = create<IAuthStore>()(
           });
         } catch (error) {
           set({
-            ...INITIAL_STATE,
             error: error instanceof Error ? error.message : 'Logout failed',
             isLoading: false
+          });
+          
+          useUIStore.getState().showToast({
+            type: 'error',
+            message: 'Failed to clean up local session'
           });
         }
       },
@@ -168,11 +187,12 @@ export const useAuthStore = create<IAuthStore>()(
         while (attempts < MAX_REFRESH_ATTEMPTS) {
           try {
             const response = await refreshToken();
-            const expiresAt = Date.now() + (response.tokens.expiresIn * 1000);
+            const expiresAt = Date.now() + ((response.tokens?.expiresIn ?? 3600) * 1000);
 
             set({
               lastTokenRefresh: Date.now(),
               sessionExpiresAt: expiresAt,
+              token: response.tokens?.accessToken ?? response.token,
             });
 
             // Schedule next refresh
@@ -193,7 +213,37 @@ export const useAuthStore = create<IAuthStore>()(
             await new Promise(resolve => setTimeout(resolve, REFRESH_RETRY_DELAY));
           }
         }
-      }
+      },
+
+      setAuth: (auth) => set(() => ({ 
+        isAuthenticated: auth.isAuthenticated,
+        user: auth.user,
+        token: auth.token
+      })),
+
+      setError: (error) => set({ error }),
+
+      initializeAuth: async () => {
+        const tokens = getAuthTokens();
+        if (tokens) {
+          try {
+            const response = await api.get('/auth/me', {
+              headers: { Authorization: `Bearer ${tokens.accessToken}` }
+            });
+            set({
+              isAuthenticated: true,
+              user: response.data,
+              token: tokens.accessToken,
+              isLoading: false
+            });
+          } catch (error) {
+            clearAuthTokens();
+            set({ isAuthenticated: false, user: null, token: null, isLoading: false });
+          }
+        } else {
+          set({ isLoading: false });
+        }
+      },
     }),
     {
       name: 'auth-store',

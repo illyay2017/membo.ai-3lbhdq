@@ -18,8 +18,8 @@ const preferencesSchema = z.object({
     .min(5, 'Duration must be at least 5 minutes')
     .max(120, 'Duration cannot exceed 120 minutes'),
   cardsPerSession: z.number()
-    .min(STUDY_MODE_CONFIG.STANDARD.minCardsPerSession)
-    .max(STUDY_MODE_CONFIG.STANDARD.maxCardsPerSession),
+    .min(STUDY_MODE_CONFIG.standard.minCardsPerSession)
+    .max(STUDY_MODE_CONFIG.standard.maxCardsPerSession),
   voiceEnabled: z.boolean(),
   voiceLanguage: z.string().optional(),
   emailNotifications: z.boolean()

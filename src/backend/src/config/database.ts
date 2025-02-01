@@ -7,7 +7,7 @@
 import { Pool, PoolConfig, QueryResult, QueryResultRow } from 'pg'; // v8.11.3
 import pino, { Logger } from 'pino'; // v8.16.0
 import CircuitBreaker from 'opossum'; // v7.1.0
-import supabase from './supabase';
+import { getServices } from './services';
 
 /**
  * Database metrics collector interface
@@ -233,7 +233,10 @@ class DatabaseManager {
  */
 export const initializeDatabase = async (): Promise<void> => {
   try {
-    const { data, error } = await supabase
+    const { supabaseService } = getServices();
+    const serviceClient = supabaseService.getServiceClient();
+    
+    const { data, error } = await serviceClient
       .from('pg_version')
       .select('version')
       .single();

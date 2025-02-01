@@ -1,6 +1,7 @@
 import React, { useState, useLayoutEffect, useCallback } from 'react';
 import { cn } from '@/lib/utils'; // v2.3.2
 import { ErrorBoundary } from 'react-error-boundary'; // v4.0.0
+import { Outlet } from 'react-router-dom';
 
 import Header from './Header';
 import Sidebar from './Sidebar';
@@ -10,7 +11,6 @@ import { useAuth } from '../../hooks/useAuth';
 
 // Interface for component props
 interface AppShellProps {
-  children: React.ReactNode;
   className?: string;
 }
 
@@ -18,7 +18,7 @@ interface AppShellProps {
  * Main application shell component that implements the three-column layout structure
  * with responsive behavior and accessibility support.
  */
-const AppShell = React.memo<AppShellProps>(({ children, className }) => {
+const AppShell: React.FC<AppShellProps> = ({ children, className }) => {
   const { isAuthenticated } = useAuth();
   const { 
     responsive: { isMobile, isTablet },
@@ -29,6 +29,7 @@ const AppShell = React.memo<AppShellProps>(({ children, className }) => {
 
   // Local state for layout transitions
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // Handle layout transitions
   useLayoutEffect(() => {
@@ -66,59 +67,39 @@ const AppShell = React.memo<AppShellProps>(({ children, className }) => {
 
   return (
     <ErrorBoundary FallbackComponent={ErrorFallback}>
-      <div 
-        className={cn(
-          'min-h-screen flex flex-col relative overflow-hidden',
-          isTransitioning && 'transition-all duration-300 ease-in-out',
-          className
-        )}
-      >
-        {/* Only show Header and Sidebar if authenticated */}
-        {isAuthenticated && (
-          <>
-            <Header
-              className="z-50"
-              onMenuClick={isMobile ? handleSidebarToggle : undefined}
-            />
-            <div className="flex flex-1 h-[calc(100vh-64px)] relative">
-              <Sidebar
-                isCollapsed={!isSidebarOpen}
-                onToggle={handleSidebarToggle}
-                className={cn(
-                  'transition-transform duration-300 ease-in-out',
-                  !isSidebarOpen && '-translate-x-full',
-                  isMobile && 'absolute left-0 top-0 bottom-0 z-40'
-                )}
-                aria-expanded={isSidebarOpen}
-              />
-              {/* Main content area */}
-              <main 
-                className={cn(
-                  'flex-1 overflow-auto scrollbar-thin scrollbar-thumb-gray-300',
-                  'dark:scrollbar-thumb-gray-600 scroll-smooth',
-                  'p-4 md:p-6',
-                  isTransitioning && 'transition-all duration-300 ease-in-out'
-                )}
-                role="main"
-              >
-                {children}
-              </main>
-            </div>
-          </>
-        )}
-        
-        {/* Always render main content */}
-        <main 
-          className={cn(
+      <div className={cn(
+        'min-h-screen flex flex-col relative overflow-hidden',
+        isTransitioning && 'transition-all duration-300 ease-in-out',
+        className
+      )}>
+        <Header
+          className="z-50"
+          onMenuClick={isMobile ? handleSidebarToggle : undefined}
+        />
+        <div className="flex flex-1 h-[calc(100vh-64px)] relative">
+          <Sidebar
+            isCollapsed={isSidebarCollapsed}
+            onToggle={() => setSidebarCollapsed(!isSidebarCollapsed)}
+            className={cn(
+              'transition-transform duration-300 ease-in-out',
+              !isSidebarCollapsed && '-translate-x-full',
+              isMobile && 'absolute left-0 top-0 bottom-0 z-40'
+            )}
+            aria-expanded={!isSidebarCollapsed}
+          />
+          <main className={cn(
             'flex-1 overflow-auto scrollbar-thin scrollbar-thumb-gray-300',
             'dark:scrollbar-thumb-gray-600 scroll-smooth',
             'p-4 md:p-6',
-            isTransitioning && 'transition-all duration-300 ease-in-out'
-          )}
-          role="main"
-        >
-          {children}
-        </main>
+            isTransitioning && 'transition-all duration-300 ease-in-out',
+            'ml-16 md:ml-64',
+            isSidebarCollapsed && 'md:ml-16',
+            'min-h-[calc(100vh-var(--header-height))]',
+            'bg-background dark:bg-gray-900'
+          )} role="main">
+            <Outlet />
+          </main>
+        </div>
 
         {/* Only show context panel if authenticated */}
         {isAuthenticated && (
@@ -133,7 +114,7 @@ const AppShell = React.memo<AppShellProps>(({ children, className }) => {
         )}
 
         {/* Overlay for mobile sidebar */}
-        {isMobile && isSidebarOpen && (
+        {isMobile && !isSidebarCollapsed && (
           <div
             className="fixed inset-0 bg-black bg-opacity-50 z-30"
             onClick={handleSidebarToggle}
@@ -143,7 +124,7 @@ const AppShell = React.memo<AppShellProps>(({ children, className }) => {
       </div>
     </ErrorBoundary>
   );
-});
+};
 
 // Display name for debugging
 AppShell.displayName = 'AppShell';

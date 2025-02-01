@@ -8,6 +8,7 @@ import { useEffect, useCallback } from 'react'; // v18.2.0
 import { useAuthStore } from '../store/authStore';
 import { LoginCredentials, RegisterCredentials, UserData } from '../types/auth';
 import { api } from '../lib/api';
+import { getAuthTokens } from '../lib/storage';
 
 // Constants for token refresh and retry configuration
 const REFRESH_INTERVAL = 25 * 60 * 1000; // 25 minutes in milliseconds
@@ -41,7 +42,6 @@ export function useAuth() {
    */
   const handleLogin = useCallback(async (credentials: LoginCredentials): Promise<void> => {
     try {
-      // Validate input credentials
       if (!credentials.email || !credentials.password) {
         throw new Error('Invalid login credentials');
       }
@@ -144,6 +144,7 @@ export function useAuth() {
       isAuthenticated: false,
       isLoading: true,
       error: null,
+      getAuthTokens,
       login: loginUser,
       register: registerUser,
       logout: logoutUser,
@@ -156,6 +157,7 @@ export function useAuth() {
     isAuthenticated,
     isLoading,
     error,
+    getAuthTokens,
     login: handleLogin,
     register: handleRegister,
     logout: handleLogout,

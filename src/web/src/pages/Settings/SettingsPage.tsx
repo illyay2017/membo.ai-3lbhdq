@@ -2,7 +2,7 @@ import React, { Suspense, useCallback } from 'react';
 import * as Tabs from '@radix-ui/react-tabs';
 import { ErrorBoundary } from 'react-error-boundary';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
-import { useAnalytics } from '@analytics/core';
+import { analytics } from '../../utils/analytics';
 import AppShell from '../../components/layout/AppShell';
 import PreferencesPage from './PreferencesPage';
 import ProfilePage from './ProfilePage';
@@ -56,7 +56,6 @@ const LoadingFallback: React.FC = () => (
 
 const SettingsPage: React.FC = () => {
   const { hasAccess } = useRoleAccess();
-  const analytics = useAnalytics();
 
   // Handle tab changes with analytics tracking
   const handleTabChange = useCallback((tabId: string) => {
@@ -71,62 +70,60 @@ const SettingsPage: React.FC = () => {
   }, [analytics]);
 
   return (
-    <AppShell>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="py-6">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            Settings
-          </h1>
-        </div>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="py-6">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+          Settings
+        </h1>
+      </div>
 
-        <Tabs.Root
-          defaultValue="profile"
-          onValueChange={handleTabChange}
-          className="space-y-6"
+      <Tabs.Root
+        defaultValue="profile"
+        onValueChange={handleTabChange}
+        className="space-y-6"
+      >
+        {/* Tabs List */}
+        <Tabs.List
+          className="flex space-x-4 border-b border-gray-200 dark:border-gray-700"
+          aria-label="Settings sections"
         >
-          {/* Tabs List */}
-          <Tabs.List
-            className="flex space-x-4 border-b border-gray-200 dark:border-gray-700"
-            aria-label="Settings sections"
-          >
-            {SETTINGS_TABS.map(tab => (
-              hasAccess(tab.requiredRole) && (
-                <Tabs.Trigger
-                  key={tab.id}
-                  value={tab.id}
-                  className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 
-                           dark:text-gray-400 dark:hover:text-gray-200 
-                           focus:outline-none focus:ring-2 focus:ring-primary-500
-                           data-[state=active]:text-primary-600 
-                           data-[state=active]:border-b-2 
-                           data-[state=active]:border-primary-600
-                           dark:data-[state=active]:text-primary-400"
-                >
-                  {tab.label}
-                </Tabs.Trigger>
-              )
-            ))}
-          </Tabs.List>
-
-          {/* Tab Panels */}
           {SETTINGS_TABS.map(tab => (
             hasAccess(tab.requiredRole) && (
-              <Tabs.Content
+              <Tabs.Trigger
                 key={tab.id}
                 value={tab.id}
-                className="focus:outline-none"
+                className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 
+                         dark:text-gray-400 dark:hover:text-gray-200 
+                         focus:outline-none focus:ring-2 focus:ring-primary-500
+                         data-[state=active]:text-primary-600 
+                         data-[state=active]:border-b-2 
+                         data-[state=active]:border-primary-600
+                         dark:data-[state=active]:text-primary-400"
               >
-                <ErrorBoundary FallbackComponent={ErrorFallback}>
-                  <Suspense fallback={<LoadingFallback />}>
-                    <tab.component />
-                  </Suspense>
-                </ErrorBoundary>
-              </Tabs.Content>
+                {tab.label}
+              </Tabs.Trigger>
             )
           ))}
-        </Tabs.Root>
-      </div>
-    </AppShell>
+        </Tabs.List>
+
+        {/* Tab Panels */}
+        {SETTINGS_TABS.map(tab => (
+          hasAccess(tab.requiredRole) && (
+            <Tabs.Content
+              key={tab.id}
+              value={tab.id}
+              className="focus:outline-none"
+            >
+              <ErrorBoundary FallbackComponent={ErrorFallback}>
+                <Suspense fallback={<LoadingFallback />}>
+                  <tab.component />
+                </Suspense>
+              </ErrorBoundary>
+            </Tabs.Content>
+          )
+        ))}
+      </Tabs.Root>
+    </div>
   );
 };
 

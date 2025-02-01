@@ -1,0 +1,2 @@
+When making suggestions on code having to do with authentication and session management, keep in mind that membo uses Supabase for authentication and and storage, on the backend. Token and session management is not handled by Supabase. Redis is used for session management and token storage.
+

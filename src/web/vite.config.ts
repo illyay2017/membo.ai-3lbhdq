@@ -9,7 +9,6 @@ export default defineConfig({
   // React plugin configuration with Fast Refresh and automatic JSX runtime
   plugins: [
     react({
-      fastRefresh: true,
       jsxRuntime: 'automatic'
     })
   ],
@@ -92,13 +91,13 @@ export default defineConfig({
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         "img-src 'self' data: https: blob:",
         "font-src 'self' https://fonts.gstatic.com",
-        "connect-src 'self' ws: wss: http://0.0.0.0:* http://localhost:* https://api.membo.ai https://storage.googleapis.com",
+        "connect-src 'self' ws: wss: http://0.0.0.0:* http://localhost:* https://api.membo.ai https://storage.googleapis.com https://www.google.com https://www.gstatic.com",
         "worker-src 'self' blob:",
         "manifest-src 'self'",
         "base-uri 'self'",
         "form-action 'self'",
         "frame-ancestors 'none'",
-        "frame-src 'self' https://www.google.com",
+        "frame-src 'self' https://www.google.com https://www.recaptcha.net",
         "upgrade-insecure-requests"
       ].join('; '),
       'X-Frame-Options': 'DENY',

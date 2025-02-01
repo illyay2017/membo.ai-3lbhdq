@@ -8,7 +8,7 @@ import { ValidationError } from 'yup'; // v1.3.2
 import { EncryptionService } from '../services/EncryptionService';
 import { auditLogger } from '../services/AuditLoggerService';
 import { IContent, ContentStatus } from '../interfaces/IContent';
-import supabase from '../config/supabase';
+import { getServices } from '../config/services';
 import * as yup from 'yup';
 
 /**
@@ -28,10 +28,11 @@ const contentSchema = yup.object().shape({
  */
 export class Content {
   private readonly tableName: string = 'contents';
-  private readonly db = supabase;
+  private readonly supabase;
   private readonly encryptionService: EncryptionService;
 
   constructor() {
+    this.supabase = getServices().supabaseService.client;
     this.encryptionService = new EncryptionService();
   }
 
@@ -54,7 +55,7 @@ export class Content {
       ]);
 
       // Begin transaction
-      const { data, error } = await this.db
+      const { data, error } = await this.supabase
         .from(this.tableName)
         .insert({
           ...validatedData,
@@ -96,7 +97,7 @@ export class Content {
    */
   async findById(id: string, userId: string): Promise<IContent | null> {
     try {
-      const { data, error } = await this.db
+      const { data, error } = await this.supabase
         .from(this.tableName)
         .select('*')
         .eq('id', id)
@@ -127,7 +128,7 @@ export class Content {
    */
   async findByUserId(userId: string, status?: ContentStatus): Promise<IContent[]> {
     try {
-      let query: PostgrestFilterBuilder<any> = this.db
+      let query: PostgrestFilterBuilder<any> = this.supabase
         .from(this.tableName)
         .select('*')
         .eq('userId', userId)
@@ -168,7 +169,7 @@ export class Content {
    */
   async updateStatus(id: string, userId: string, status: ContentStatus): Promise<IContent> {
     try {
-      const { data, error } = await this.db
+      const { data, error } = await this.supabase
         .from(this.tableName)
         .update({
           status,
@@ -214,7 +215,7 @@ export class Content {
    */
   async delete(id: string, userId: string): Promise<boolean> {
     try {
-      const { error } = await this.db
+      const { error } = await this.supabase
         .from(this.tableName)
         .update({
           deleted_at: new Date().toISOString(),

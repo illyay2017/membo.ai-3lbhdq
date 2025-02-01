@@ -12,7 +12,7 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { useAuth } from '../../hooks/useAuth';
 import { validateProfileData } from '../../utils/validation';
-import { UserRole } from '../../../backend/src/constants/userRoles';
+import { UserRole } from '@shared/types/userRoles';
 
 // Profile form data interface with strict typing
 interface ProfileFormData {

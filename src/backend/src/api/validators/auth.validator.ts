@@ -65,27 +65,32 @@ const REGISTRATION_SCHEMA = Joi.object({
   email: Joi.string()
     .required()
     .email()
-    .custom((value, helpers) => {
-      const result = validateEmail(value, {
+    .custom(async (value, helpers) => {
+      const result = await validateEmail(value, {
         checkMX: true,
         checkDisposable: true,
         checkReputation: true
       });
       if (!result.isValid) {
-        return helpers.error(result.errors[0].message);
+        return helpers.error('any.invalid', { 
+          message: result.errors?.[0]?.message || 'Invalid email'
+        });
       }
       return value;
     }),
   password: Joi.string()
     .required()
+    .min(8)
     .custom((value, helpers) => {
       const result = validatePassword(value, {
-        minLength: 10,
+        minLength: 8,
         checkCommonPasswords: true,
         calculateStrength: true
       });
       if (!result.isValid || result.metadata?.strength < 70) {
-        return helpers.error('Password does not meet security requirements');
+        return helpers.error('any.invalid', {
+          message: 'Password must be at least 8 characters long and include uppercase, lowercase, numbers, and special characters'
+        });
       }
       return value;
     }),
@@ -93,12 +98,18 @@ const REGISTRATION_SCHEMA = Joi.object({
     .required()
     .min(2)
     .max(50)
-    .pattern(/^[a-zA-Z\s-']+$/),
+    .pattern(/^[a-zA-Z\s-']+$/, { name: 'valid name characters' }),
   lastName: Joi.string()
     .required()
     .min(2)
     .max(50)
-    .pattern(/^[a-zA-Z\s-']+$/),
+    .pattern(/^[a-zA-Z\s-']+$/, { name: 'valid name characters' }),
+  captchaToken: Joi.string()
+    .when('$isProduction', {
+      is: true,
+      then: Joi.required(),
+      otherwise: Joi.optional()
+    }),
   metadata: metadataSchema
 });
 

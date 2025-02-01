@@ -41,7 +41,11 @@ const logger = winston.createLogger({
 export class User implements IUser {
   public id: string;
   public email: string;
-  private password: string;
+  protected _password!: string;  // Add ! operator
+  
+  get password(): string { return this._password; }
+  set password(value: string) { this._password = value; }
+  
   public firstName: string;
   public lastName: string;
   public role: UserRole;

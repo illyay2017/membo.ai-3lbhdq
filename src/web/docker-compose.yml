@@ -37,10 +37,13 @@ services:
       - VITE_DEV_SERVER_PORT=5173
       - VITE_HMR_HOST=0.0.0.0
       - VITE_HMR_PORT=5173
+      - VITE_RECAPTCHA_SITE_KEY=${VITE_RECAPTCHA_SITE_KEY}
     networks:
       - membo_network
     stdin_open: true
     tty: true
+    env_file:
+      - ../../.env.docker
 
 networks:
   membo_network:

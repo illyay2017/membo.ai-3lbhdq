@@ -84,71 +84,17 @@ async function initializeIndexedDB(): Promise<void> {
 
 /**
  * Stores authentication tokens securely with encryption
- * @param tokens Authentication tokens to store
  */
 export function setAuthTokens(tokens: AuthTokens): void {
-    try {
-        const salt = CryptoJS.lib.WordArray.random(128/8);
-        const key = CryptoJS.PBKDF2(
-            window.location.hostname, 
-            salt,
-            { keySize: 256/32, iterations: 1000 }
-        );
-
-        const encrypted = CryptoJS.AES.encrypt(
-            JSON.stringify(tokens),
-            key.toString(),
-            { mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.Pkcs7 }
-        );
-
-        localStorage.setItem(STORAGE_KEYS.ENCRYPTION_KEY, salt.toString());
-        localStorage.setItem(STORAGE_KEYS.AUTH_TOKENS, encrypted.toString());
-        localStorage.setItem('tokenExpiry', (Date.now() + TOKEN_EXPIRY).toString());
-    } catch (error) {
-        console.error('Failed to store auth tokens:', error);
-        throw new Error('Token storage failed');
-    }
+    localStorage.setItem(STORAGE_KEYS.AUTH_TOKENS, JSON.stringify(tokens));
 }
 
 /**
  * Retrieves and validates stored authentication tokens
- * @returns Decrypted auth tokens or null if invalid/expired
  */
-export async function getAuthTokens(): Promise<AuthTokens | null> {
-    try {
-        const encrypted = localStorage.getItem(STORAGE_KEYS.AUTH_TOKENS);
-        const salt = localStorage.getItem(STORAGE_KEYS.ENCRYPTION_KEY);
-        const expiry = localStorage.getItem('tokenExpiry');
-
-        if (!encrypted || !salt || !expiry) {
-            return null;
-        }
-
-        if (Date.now() > parseInt(expiry, 10)) {
-            clearAuthTokens();
-            return null;
-        }
-
-        const key = CryptoJS.PBKDF2(
-            window.location.hostname,
-            salt,
-            { keySize: 256/32, iterations: 1000 }
-        );
-
-        const decrypted = CryptoJS.AES.decrypt(encrypted, key.toString());
-        const tokens = JSON.parse(decrypted.toString(CryptoJS.enc.Utf8)) as AuthTokens;
-
-        if (!validateTokenStructure(tokens)) {
-            clearAuthTokens();
-            return null;
-        }
-
-        return tokens;
-    } catch (error) {
-        console.error('Failed to retrieve auth tokens:', error);
-        clearAuthTokens();
-        return null;
-    }
+export function getAuthTokens(): AuthTokens | null {
+    const tokens = localStorage.getItem(STORAGE_KEYS.AUTH_TOKENS);
+    return tokens ? JSON.parse(tokens) : null;
 }
 
 /**
@@ -233,20 +179,6 @@ export async function getOfflineContent(contentId: string): Promise<Content | nu
 }
 
 /**
- * Validates the structure of authentication tokens
- * @param tokens Tokens to validate
- * @returns boolean indicating if tokens are valid
- */
-function validateTokenStructure(tokens: any): tokens is AuthTokens {
-    return (
-        typeof tokens === 'object' &&
-        typeof tokens.accessToken === 'string' &&
-        typeof tokens.refreshToken === 'string' &&
-        typeof tokens.expiresIn === 'number'
-    );
-}
-
-/**
  * Clears authentication tokens from storage
  */
 export function clearAuthTokens(): void {
@@ -285,4 +217,10 @@ async function clearStorage(): Promise<void> {
  */
 export function setUserPreferences(preferences: Record<string, unknown>): void {
     localStorage.setItem(STORAGE_KEYS.USER_PREFERENCES, JSON.stringify(preferences));
+}
+
+// Get current access token
+export function getAccessToken(): string | null {
+    const tokens = getAuthTokens();
+    return tokens?.accessToken || null;
 }

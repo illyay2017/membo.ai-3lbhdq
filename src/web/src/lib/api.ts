@@ -6,7 +6,7 @@
 
 import axios, { AxiosInstance, AxiosError, AxiosRequestConfig } from 'axios';
 import { API_VERSION, API_BASE_URL, API_HEADERS } from '../constants/api';
-import { getAuthTokens } from './storage';
+import { getAccessToken } from './storage';
 import { AuthTokens } from '../types/auth';
 
 /**
@@ -204,3 +204,12 @@ export const api = {
   setAuthToken,
   clearAuthToken,
 };
+
+// Add auth token to requests
+axiosInstance.interceptors.request.use((config) => {
+  const token = getAccessToken();
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});

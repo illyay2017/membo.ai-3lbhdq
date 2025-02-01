@@ -13,6 +13,7 @@ interface ContentListProps {
   className?: string;
   ariaLabel?: string;
   role?: string;
+  emptyStateComponent?: React.ReactNode;
 }
 
 /**
@@ -22,7 +23,8 @@ interface ContentListProps {
 const ContentList: React.FC<ContentListProps> = ({
   className,
   ariaLabel = 'Content list',
-  role = 'feed'
+  role = 'feed',
+  emptyStateComponent
 }) => {
   // Store state and actions
   const { contents, isLoading, totalCount, filters, setFilters } = useContentStore();
@@ -173,13 +175,15 @@ const ContentList: React.FC<ContentListProps> = ({
         )}
 
         {!isLoading && contents.length === 0 && (
-          <div 
-            className="flex flex-col items-center justify-center p-8 text-center text-gray-500"
-            role="status"
-            aria-label="No content found"
-          >
-            <p>No content found matching your filters.</p>
-          </div>
+          emptyStateComponent || (
+            <div 
+              className="flex flex-col items-center justify-center p-8 text-center text-gray-500"
+              role="status"
+              aria-label="No content found"
+            >
+              <p>No content found matching your filters.</p>
+            </div>
+          )
         )}
       </div>
     </div>

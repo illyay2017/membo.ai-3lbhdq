@@ -21,11 +21,7 @@ export interface LoginCredentials {
  * Interface defining the required data for new user registration.
  * Used as the payload for registration requests to create new user accounts.
  */
-export interface RegisterCredentials {
-    /** User's email address for account creation */
-    email: string;
-    /** User's password for account security */
-    password: string;
+export interface RegisterCredentials extends LoginCredentials {
     /** User's first name for profile information */
     firstName: string;
     /** User's last name for profile information */
@@ -40,9 +36,9 @@ export interface AuthTokens {
     /** JWT access token for API authorization */
     accessToken: string;
     /** JWT refresh token for obtaining new access tokens */
-    refreshToken: string;
+    refreshToken?: string;
     /** Token expiration time in seconds (30 minutes) */
-    expiresIn: number;
+    expiresIn?: number;
 }
 
 /**
@@ -61,7 +57,7 @@ export interface UserData {
     /** User's role for role-based access control */
     role: UserRole;
     /** Indicates whether the user's email has been verified */
-    isEmailVerified: boolean;
+    isEmailVerified?: boolean;
 }
 
 /**
@@ -72,5 +68,9 @@ export interface AuthResponse {
     /** Authenticated user's profile data */
     user: UserData;
     /** Authentication tokens for API access */
-    tokens: AuthTokens;
+    tokens: {
+        accessToken: string;
+        refreshToken: string;
+        expiresIn: number;
+    };
 }

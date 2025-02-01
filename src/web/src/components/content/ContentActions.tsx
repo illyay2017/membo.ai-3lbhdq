@@ -11,7 +11,7 @@ import Button from '../ui/button';
 import { useContentStore } from '../../store/contentStore';
 import { useAuth } from '../../hooks/useAuth';
 import { ContentStatus } from '../../types/content';
-import { UserRole } from '../../../backend/src/constants/userRoles';
+import { UserRole } from '@shared/types/userRoles';
 
 interface ContentActionsProps {
   contentId: string;

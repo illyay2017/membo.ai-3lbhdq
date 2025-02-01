@@ -16,7 +16,7 @@ const TIER_MODE_ACCESS: Record<UserTier, STUDY_MODES[]> = {
   [UserTier.FREE]: [STUDY_MODES.STANDARD],
   [UserTier.PRO]: [STUDY_MODES.STANDARD, STUDY_MODES.VOICE],
   [UserTier.POWER]: [STUDY_MODES.STANDARD, STUDY_MODES.VOICE, STUDY_MODES.QUIZ]
-}
+} as const;
 
 // Sort options with labels and values
 const SORT_OPTIONS = [
@@ -37,28 +37,28 @@ interface CardFiltersProps {
   onModeChange: (mode: STUDY_MODES | null) => void
   onTagsChange: (tags: string[]) => void
   onSortChange: (sort: string) => void
-  availableTags: string[]
-  userTier: UserTier
-  cardCount: number
+  availableTags?: string[]
+  userTier?: UserTier
+  cardCount?: number
 }
 
 export const CardFilters: React.FC<CardFiltersProps> = ({
   selectedMode,
-  selectedTags,
+  selectedTags = [],
   selectedSort,
   onModeChange,
   onTagsChange,
   onSortChange,
-  availableTags,
-  userTier,
-  cardCount
+  availableTags = [],
+  userTier = UserTier.FREE,
+  cardCount = 0
 }) => {
   // Convert study modes to select options based on user tier access
   const studyModeOptions = React.useMemo(() => {
-    const allowedModes = TIER_MODE_ACCESS[userTier]
+    const allowedModes = TIER_MODE_ACCESS[userTier] || [STUDY_MODES.STANDARD]; // Fallback to standard mode
     return [
       { value: "", label: "All Modes" },
-      ...allowedModes.map(mode => ({
+      ...Object.values(STUDY_MODES).map(mode => ({
         value: mode,
         label: mode.charAt(0).toUpperCase() + mode.slice(1),
         disabled: !allowedModes.includes(mode)
@@ -66,8 +66,9 @@ export const CardFilters: React.FC<CardFiltersProps> = ({
     ]
   }, [userTier])
 
-  // Convert available tags to select options
+  // Convert available tags to select options - with null check
   const tagOptions = React.useMemo(() => {
+    if (!availableTags?.length) return []
     return availableTags.map(tag => ({
       value: tag,
       label: tag
@@ -82,7 +83,7 @@ export const CardFilters: React.FC<CardFiltersProps> = ({
     }
 
     const selectedMode = mode as STUDY_MODES
-    const allowedModes = TIER_MODE_ACCESS[userTier]
+    const allowedModes = TIER_MODE_ACCESS[userTier] || [STUDY_MODES.STANDARD]
 
     if (allowedModes.includes(selectedMode)) {
       onModeChange(selectedMode)
@@ -103,20 +104,22 @@ export const CardFilters: React.FC<CardFiltersProps> = ({
         <Select
           value={selectedMode || ""}
           options={studyModeOptions}
-          onChange={value => handleModeChange(value)}
+          onChange={handleModeChange}
           placeholder="Select Study Mode"
           className="w-full sm:w-48"
         />
 
-        {/* Tag Filter */}
-        <Select
-          value={selectedTags}
-          options={tagOptions}
-          onChange={value => handleTagsChange(Array.isArray(value) ? value : [value])}
-          placeholder="Filter by Tags"
-          className="w-full sm:w-64"
-          multiple
-        />
+        {/* Tag Filter - only show if we have tags */}
+        {tagOptions.length > 0 && (
+          <Select
+            multiple
+            value={selectedTags}
+            onChange={handleTagsChange}
+            options={tagOptions}
+            placeholder="Filter by Tags"
+            className="w-full sm:w-64"
+          />
+        )}
 
         {/* Sort Options */}
         <Select

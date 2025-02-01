@@ -5,10 +5,10 @@
  * @version 1.0.0
  */
 
-import { setAuthToken, clearAuthToken } from '../lib/api';
-import { setAuthTokens, clearAuthTokens } from '../lib/storage';
+import { getAccessToken, setAuthTokens, clearAuthTokens } from '../lib/storage';
 import { LoginCredentials, RegisterCredentials, AuthResponse, AuthTokens } from '../types/auth';
 import { API_ENDPOINTS } from '../constants/api';
+import { setAuthToken } from '@/lib/api';
 
 // Token refresh configuration
 const TOKEN_REFRESH_THRESHOLD = 300000; // 5 minutes before expiry
@@ -23,44 +23,48 @@ let tokenRefreshInterval: ReturnType<typeof setInterval> | null = null;
  * @throws Error if authentication fails
  */
 export async function login(credentials: LoginCredentials): Promise<AuthResponse> {
-  try {
-    // Add debug logging
-    console.log('Attempting login to:', API_ENDPOINTS.AUTH.LOGIN);
-    console.log('With credentials:', { email: credentials.email, password: '***' });
+  console.log('Attempting login with:', { ...credentials, password: '[REDACTED]' });
+  
+  const response = await fetch(API_ENDPOINTS.AUTH.LOGIN, {
+    method: 'POST',
+    headers: { 
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
+    },
+    body: JSON.stringify(credentials),
+    credentials: 'include'
+  });
 
-    const response = await fetch(API_ENDPOINTS.AUTH.LOGIN, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(credentials),
-      credentials: 'include' // Important for cookies
-    });
-
-    console.log('Response status:', response.status);
-    console.log('Response headers:', Object.fromEntries(response.headers.entries()));
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => null);
-      console.error('Error response:', errorData);
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json();
-
-    // Validate response
-    if (!data?.tokens?.accessToken || !data?.user) {
-      throw new Error('Invalid authentication response');
-    }
-
-    // Setup authentication state
-    await setupAuthState(data.tokens);
-
-    return data;
-  } catch (error) {
-    console.error('Login failed:', error);
-    throw new Error(error instanceof Error ? error.message : 'Authentication failed');
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    console.error('Login failed:', errorData || response.statusText);
+    throw new Error(errorData?.detail || 'Authentication failed');
   }
+
+  const data = await response.json();
+  
+  console.log('Login response:', {
+    hasUser: !!data.data?.user,
+    hasToken: !!data.data?.token,
+    hasRefreshToken: !!data.data?.refreshToken,
+    responseShape: Object.keys(data.data || {})
+  });
+  
+  // Transform response to match backend shape
+  const authResponse: AuthResponse = {
+    user: data.data.user,
+    tokens: {
+      accessToken: data.data.token,
+      refreshToken: data.data.refreshToken,
+      expiresIn: 3600
+    }
+  };
+
+  // Store tokens securely
+  localStorage.setItem('refreshToken', authResponse.tokens.refreshToken);
+  await setupAuthState(authResponse.tokens);
+
+  return authResponse;
 }
 
 /**
@@ -71,43 +75,63 @@ export async function login(credentials: LoginCredentials): Promise<AuthResponse
  */
 export async function register(userData: RegisterCredentials): Promise<AuthResponse> {
   try {
-    // Validate registration data
-    if (!userData.email || !userData.password || !userData.firstName || !userData.lastName) {
-      throw new Error('Invalid registration data');
-    }
-
-    // Validate password strength
-    if (!isPasswordStrong(userData.password)) {
-      throw new Error('Password does not meet security requirements');
-    }
-
-    // Attempt registration
+    console.log('Starting registration process...');
+    
     const response = await fetch(API_ENDPOINTS.AUTH.REGISTER, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(userData)
+      body: JSON.stringify(userData),
+      credentials: 'include'
+    });
+
+    console.log('Raw response:', {
+      status: response.status,
+      statusText: response.statusText,
+      headers: Object.fromEntries(response.headers.entries())
+    });
+
+    const data = await response.json();
+    console.log('Response data:', {
+      ...data,
+      user: data.user ? 'Present' : 'Missing',
+      token: data.token ? 'Present' : 'Missing',
+      tokens: data.tokens ? 'Present' : 'Missing'
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      console.error('Registration error:', data);
+      throw new Error(data.detail || data.message || 'Registration failed');
     }
 
-    const data = await response.json();
-
-    // Validate response
-    if (!data?.tokens?.accessToken || !data?.user) {
-      throw new Error('Invalid registration response');
+    // Ensure we have the required data
+    if (!data.user || (!data.token && !data.tokens?.accessToken)) {
+      console.error('Invalid response structure:', data);
+      throw new Error('Invalid registration response format');
     }
+
+    const authResponse: AuthResponse = {
+      user: data.user,
+      tokens: {
+        accessToken: data.token || data.tokens?.accessToken,
+        refreshToken: data.refreshToken || data.tokens?.refreshToken,
+        expiresIn: data.expiresIn || data.tokens?.expiresIn || 3600
+      }
+    };
+
+    console.log('Processed auth response:', {
+      hasUser: !!authResponse.user,
+      hasTokens: !!authResponse.tokens
+    });
 
     // Setup authentication state
-    await setupAuthState(data.tokens);
+    await setupAuthState(authResponse.tokens);
 
-    return data;
+    return authResponse;
   } catch (error) {
-    console.error('Registration failed:', error);
-    throw new Error(error instanceof Error ? error.message : 'Registration failed');
+    console.error('Registration error:', error);
+    throw error;
   }
 }
 
@@ -117,22 +141,27 @@ export async function register(userData: RegisterCredentials): Promise<AuthRespo
  */
 export async function logout(): Promise<void> {
   try {
-    // Attempt server-side logout
+    const accessToken = getAccessToken();
+    const refreshToken = localStorage.getItem('refreshToken');
+    
+    // Send logout request to backend
     const response = await fetch(API_ENDPOINTS.AUTH.LOGOUT, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
-      }
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken || ''}`
+      },
+      body: JSON.stringify({ refreshToken }),
+      credentials: 'include'
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const errorData = await response.json().catch(() => null);
+      console.error('Logout failed:', errorData || response.statusText);
+      throw new Error(errorData?.message || 'Logout failed');
     }
-  } catch (error) {
-    console.error('Logout request failed:', error);
   } finally {
-    // Clean up local auth state regardless of server response
-    cleanupAuthState();
+    clearAuthTokens();
   }
 }
 
@@ -190,7 +219,6 @@ async function setupAuthState(tokens: AuthTokens): Promise<void> {
  */
 function cleanupAuthState(): void {
   clearAuthTokens();
-  clearAuthToken();
   stopTokenRefresh();
 }
 
